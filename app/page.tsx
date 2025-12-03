@@ -1,103 +1,349 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import { useState, useMemo, useEffect } from "react"
+import { fetchAllComplaints } from "@/lib/data-loader"
+import { getFilters, type FiltersResponse } from "@/lib/api"
+import type { PCIComplaint } from "@/lib/types"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Network, Target, Users, Scale, TrendingUp, Filter, MapIcon, Loader2 } from "lucide-react"
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+// Components
+import { FilterPanel } from "@/components/filter-panel"
+import { StatisticsPanel } from "@/components/statistics-panel"
+import { IndiaMap } from "@/components/india-map"
+import { TargetsAnalysis } from "@/components/targets-analysis"
+import { ComplainantsAnalysis } from "@/components/complainants-analysis"
+import { ThreatsAnalysis } from "@/components/threats-analysis"
+import { AccountabilityAnalysis } from "@/components/accountability-analysis"
+import { RegionalAnalysis } from "@/components/regional-analysis"
+import { NetworkGraph } from "@/components/network-graph"
+import { ExportPanel } from "@/components/export-panel"
+import { ResearchFindings } from "@/components/research-findings"
+
+export default function Dashboard() {
+  const [allData, setAllData] = useState<PCIComplaint[]>([])
+  const [filters, setFilters] = useState<FiltersResponse | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Load data and filters from API on mount
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const [data, filtersData] = await Promise.all([
+          fetchAllComplaints(),
+          getFilters()
+        ])
+
+        if (data.length === 0) {
+          setError("No data received from API. Make sure the FastAPI backend is running at http://localhost:8000")
+        }
+
+        setAllData(data)
+        setFilters(filtersData)
+
+        console.log('Loaded filters from API:', filtersData)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load data")
+        console.error("Error loading data:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  // Filter states
+  const [selectedYears, setSelectedYears] = useState<number[]>([])
+  const [selectedStates, setSelectedStates] = useState<string[]>([])
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [selectedDirection, setSelectedDirection] = useState<"all" | "by_press" | "against_press">("all")
+  const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([])
+  const [selectedDecisions, setSelectedDecisions] = useState<string[]>([])
+  const [activeView, setActiveView] = useState("targets")
+
+  // Filtered data based on all active filters
+  const filteredData = useMemo(() => {
+    const result = allData.filter((item) => {
+      if (selectedYears.length > 0 && !selectedYears.includes(item.year)) return false
+      if (selectedStates.length > 0 && !selectedStates.includes(item.state)) return false
+      if (selectedTypes.length > 0 && !selectedTypes.includes(item.complaintType)) return false
+      if (selectedDirection !== "all" && item.complaintDirection !== selectedDirection) return false
+      if (selectedAffiliations.length > 0) {
+        const hasAffiliation =
+          selectedAffiliations.includes(item.complainantAffiliation) ||
+          selectedAffiliations.includes(item.accusedAffiliation)
+        if (!hasAffiliation) return false
+      }
+      if (selectedDecisions.length > 0 && !selectedDecisions.includes(item.decision)) return false
+      return true
+    })
+
+    console.log('Filter applied:', {
+      selectedDirection,
+      totalData: allData.length,
+      filteredCount: result.length,
+      directionCounts: {
+        by_press: allData.filter(d => d.complaintDirection === 'by_press').length,
+        against_press: allData.filter(d => d.complaintDirection === 'against_press').length
+      }
+    })
+
+    return result
+  }, [
+    allData,
+    selectedYears,
+    selectedStates,
+    selectedTypes,
+    selectedDirection,
+    selectedAffiliations,
+    selectedDecisions,
+  ])
+
+  // State data for map
+  const stateMapData = useMemo(() => {
+    const counts = new Map<string, { total: number; byPress: number; againstPress: number }>()
+    filteredData.forEach((d) => {
+      const current = counts.get(d.state) || { total: 0, byPress: 0, againstPress: 0 }
+      current.total++
+      if (d.complaintDirection === "by_press") current.byPress++
+      else current.againstPress++
+      counts.set(d.state, current)
+    })
+    return Array.from(counts.entries()).map(([state, data]) => ({
+      state,
+      count: data.total,
+      byPress: data.byPress,
+      againstPress: data.againstPress,
+    }))
+  }, [filteredData])
+
+  // Statistics
+  const statistics = useMemo(() => {
+    const byPress = filteredData.filter((d) => d.complaintDirection === "by_press").length
+    const againstPress = filteredData.filter((d) => d.complaintDirection === "against_press").length
+    const upheld = filteredData.filter((d) => d.decision === "Upheld").length
+    const dismissed = filteredData.filter((d) => d.decision === "Dismissed").length
+
+    return {
+      total: filteredData.length,
+      byPress,
+      againstPress,
+      upheld,
+      dismissed,
+      upheldRate: filteredData.length > 0 ? ((upheld / filteredData.length) * 100).toFixed(1) : "0",
+      statesCovered: new Set(filteredData.map((d) => d.state)).size,
+      yearsSpanned: new Set(filteredData.map((d) => d.year)).size,
+    }
+  }, [filteredData])
+
+  const activeFilterCount = [
+    selectedYears.length,
+    selectedStates.length,
+    selectedTypes.length,
+    selectedDirection !== "all" ? 1 : 0,
+    selectedAffiliations.length,
+    selectedDecisions.length,
+  ].reduce((a, b) => a + b, 0)
+
+  const clearAllFilters = () => {
+    setSelectedYears([])
+    setSelectedStates([])
+    setSelectedTypes([])
+    setSelectedDirection("all")
+    setSelectedAffiliations([])
+    setSelectedDecisions([])
+  }
+
+  const handleStateClick = (state: string) => {
+    if (state === "" || selectedStates.includes(state)) {
+      setSelectedStates([])
+    } else {
+      setSelectedStates([state])
+    }
+  }
+
+  const mapDirection = selectedDirection === "all" ? "all" : selectedDirection === "by_press" ? "by" : "against"
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Loading PCI complaints data...</p>
+          <p className="text-sm text-muted-foreground">Fetching from FastAPI backend at http://localhost:8000</p>
         </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-4">
+          <div className="text-6xl">⚠️</div>
+          <h2 className="text-2xl font-semibold text-foreground">Failed to Load Data</h2>
+          <p className="text-muted-foreground">{error}</p>
+          <div className="bg-secondary/50 p-4 rounded-lg text-left text-sm">
+            <p className="font-medium mb-2">Troubleshooting:</p>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+              <li>Make sure the FastAPI backend is running</li>
+              <li>Check that it's accessible at <code className="bg-background px-1 py-0.5 rounded">http://localhost:8000</code></li>
+              <li>Verify the database file exists at <code className="bg-background px-1 py-0.5 rounded">complaints.db</code></li>
+              <li>Check browser console for detailed errors</li>
+            </ul>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-[1800px] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">Press Council of India — Complaints Analytics</h1>
+              <p className="text-muted-foreground text-sm mt-0.5">
+                Analyzing press freedom, threats, and accountability across India
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {activeFilterCount > 0 && (
+                <Badge variant="secondary" className="border-primary/30 text-primary">
+                  <Filter className="h-3 w-3 mr-1" />
+                  {activeFilterCount} filters
+                </Badge>
+              )}
+              <ExportPanel data={filteredData} />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-[1800px] mx-auto px-6 py-6 space-y-6">
+        <Tabs defaultValue="general" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="general">General Analytics</TabsTrigger>
+            <TabsTrigger value="research">Research Findings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="general" className="space-y-6">
+            {/* Statistics Overview */}
+            <StatisticsPanel stats={statistics} />
+
+            {/* Filter Panel */}
+            <FilterPanel
+              data={allData}
+              filters={filters}
+              selectedYears={selectedYears}
+              selectedStates={selectedStates}
+              selectedTypes={selectedTypes}
+              selectedDirection={selectedDirection}
+              selectedAffiliations={selectedAffiliations}
+              selectedDecisions={selectedDecisions}
+              onYearsChange={setSelectedYears}
+              onStatesChange={setSelectedStates}
+              onTypesChange={setSelectedTypes}
+              onDirectionChange={setSelectedDirection}
+              onAffiliationsChange={setSelectedAffiliations}
+              onDecisionsChange={setSelectedDecisions}
+              onClearAll={clearAllFilters}
+            />
+
+            {/* Interactive India Map - Primary Visualization */}
+            <IndiaMap
+              stateData={stateMapData}
+              onStateClick={handleStateClick}
+              selectedState={selectedStates.length === 1 ? selectedStates[0] : null}
+              direction={mapDirection}
+            />
+
+            {/* Research Question Views */}
+            <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
+              <TabsList className="bg-secondary border border-border p-1 h-auto flex-wrap">
+                <TabsTrigger value="targets" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
+                  <Target className="h-4 w-4" />
+                  <span className="hidden sm:inline">Targets</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="complainants"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">Complainants</span>
+                </TabsTrigger>
+                <TabsTrigger value="threats" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="hidden sm:inline">Threats</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="accountability"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2"
+                >
+                  <Scale className="h-4 w-4" />
+                  <span className="hidden sm:inline">Accountability</span>
+                </TabsTrigger>
+                <TabsTrigger value="regional" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
+                  <MapIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Regional</span>
+                </TabsTrigger>
+                <TabsTrigger value="network" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
+                  <Network className="h-4 w-4" />
+                  <span className="hidden sm:inline">Network</span>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Q1: Which news-sources are the primary targets of complaints? */}
+              <TabsContent value="targets" className="mt-6">
+                <TargetsAnalysis data={filteredData} />
+              </TabsContent>
+
+              {/* Q4: Who are the primary complainants? */}
+              <TabsContent value="complainants" className="mt-6">
+                <ComplainantsAnalysis data={filteredData} />
+              </TabsContent>
+
+              {/* Q2: Media organizations and journalists facing threats */}
+              <TabsContent value="threats" className="mt-6">
+                <ThreatsAnalysis data={filteredData} />
+              </TabsContent>
+
+              {/* Q5: Case outcomes and accountability */}
+              <TabsContent value="accountability" className="mt-6">
+                <AccountabilityAnalysis data={filteredData} />
+              </TabsContent>
+
+              {/* Q3: State-wise hotspots */}
+              <TabsContent value="regional" className="mt-6">
+                <RegionalAnalysis data={filteredData} onStateSelect={handleStateClick} />
+              </TabsContent>
+
+              {/* Network Analysis */}
+              <TabsContent value="network" className="mt-6">
+                <NetworkGraph data={filteredData} />
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="research">
+            <ResearchFindings filters={filters} />
+          </TabsContent>
+        </Tabs>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
-  );
+  )
 }
