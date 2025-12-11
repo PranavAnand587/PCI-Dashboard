@@ -33,19 +33,16 @@ export default function Dashboard() {
       setIsLoading(true)
       setError(null)
       try {
-        const [data, filtersData] = await Promise.all([
-          fetchAllComplaints(),
-          getFilters()
-        ])
+        const [data, filtersData] = await Promise.all([fetchAllComplaints(), getFilters()])
 
         if (data.length === 0) {
-          setError("No data received from API. Make sure the FastAPI backend is running at http://localhost:8000")
+          setError("No data received from API. Make sure the Backend is connected")
         }
 
         setAllData(data)
         setFilters(filtersData)
 
-        console.log('Loaded filters from API:', filtersData)
+        console.log("Loaded filters from API:", filtersData)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data")
         console.error("Error loading data:", err)
@@ -63,7 +60,15 @@ export default function Dashboard() {
   const [selectedDirection, setSelectedDirection] = useState<"all" | "by_press" | "against_press">("all")
   const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([])
   const [selectedDecisions, setSelectedDecisions] = useState<string[]>([])
+  const [selectedDecisionParents, setSelectedDecisionParents] = useState<string[]>([])
   const [activeView, setActiveView] = useState("targets")
+
+  // If the user switches to 'against_press', hide the threats tab and ensure activeView isn't 'threats'
+  useEffect(() => {
+    if (selectedDirection === "against_press" && activeView === "threats") {
+      setActiveView("targets")
+    }
+  }, [selectedDirection, activeView])
 
   // Filtered data based on all active filters
   const filteredData = useMemo(() => {
@@ -78,18 +83,19 @@ export default function Dashboard() {
           selectedAffiliations.includes(item.accusedAffiliation)
         if (!hasAffiliation) return false
       }
+      if (selectedDecisionParents.length > 0 && !selectedDecisionParents.includes(item.decisionParent)) return false
       if (selectedDecisions.length > 0 && !selectedDecisions.includes(item.decision)) return false
       return true
     })
 
-    console.log('Filter applied:', {
+    console.log("Filter applied:", {
       selectedDirection,
       totalData: allData.length,
       filteredCount: result.length,
       directionCounts: {
-        by_press: allData.filter(d => d.complaintDirection === 'by_press').length,
-        against_press: allData.filter(d => d.complaintDirection === 'against_press').length
-      }
+        by_press: allData.filter((d) => d.complaintDirection === "by_press").length,
+        against_press: allData.filter((d) => d.complaintDirection === "against_press").length,
+      },
     })
 
     return result
@@ -101,6 +107,7 @@ export default function Dashboard() {
     selectedDirection,
     selectedAffiliations,
     selectedDecisions,
+    selectedDecisionParents,
   ])
 
   // State data for map
@@ -125,8 +132,8 @@ export default function Dashboard() {
   const statistics = useMemo(() => {
     const byPress = filteredData.filter((d) => d.complaintDirection === "by_press").length
     const againstPress = filteredData.filter((d) => d.complaintDirection === "against_press").length
-    const upheld = filteredData.filter((d) => d.decision === "Upheld").length
-    const dismissed = filteredData.filter((d) => d.decision === "Dismissed").length
+    const upheld = filteredData.filter((d) => d.decisionParent === "Upheld").length
+    const dismissed = filteredData.filter((d) => d.decisionParent === "Closed").length
 
     return {
       total: filteredData.length,
@@ -147,6 +154,7 @@ export default function Dashboard() {
     selectedDirection !== "all" ? 1 : 0,
     selectedAffiliations.length,
     selectedDecisions.length,
+    selectedDecisionParents.length,
   ].reduce((a, b) => a + b, 0)
 
   const clearAllFilters = () => {
@@ -156,6 +164,7 @@ export default function Dashboard() {
     setSelectedDirection("all")
     setSelectedAffiliations([])
     setSelectedDecisions([])
+    setSelectedDecisionParents([])
   }
 
   const handleStateClick = (state: string) => {
@@ -175,7 +184,7 @@ export default function Dashboard() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="text-lg text-muted-foreground">Loading PCI complaints data...</p>
-          <p className="text-sm text-muted-foreground">Fetching from FastAPI backend at http://localhost:8000</p>
+          <p className="text-sm text-muted-foreground">Fetching Data from Backend</p>
         </div>
       </div>
     )
@@ -193,8 +202,14 @@ export default function Dashboard() {
             <p className="font-medium mb-2">Troubleshooting:</p>
             <ul className="list-disc list-inside space-y-1 text-muted-foreground">
               <li>Make sure the FastAPI backend is running</li>
-              <li>Check that it's accessible at <code className="bg-background px-1 py-0.5 rounded">http://localhost:8000</code></li>
-              <li>Verify the database file exists at <code className="bg-background px-1 py-0.5 rounded">complaints.db</code></li>
+              <li>
+                Check that it's accessible at{" "}
+                <code className="bg-background px-1 py-0.5 rounded">http://localhost:8000</code>
+              </li>
+              <li>
+                Verify the database file exists at{" "}
+                <code className="bg-background px-1 py-0.5 rounded">complaints.db</code>
+              </li>
               <li>Check browser console for detailed errors</li>
             </ul>
           </div>
@@ -216,7 +231,7 @@ export default function Dashboard() {
         <div className="max-w-[1800px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-foreground">Press Council of India — Complaints Analytics</h1>
+              <h1 className="text-xl font-semibold text-foreground">Press Council of India: Complaints Analytics</h1>
               <p className="text-muted-foreground text-sm mt-0.5">
                 Analyzing press freedom, threats, and accountability across India
               </p>
@@ -243,7 +258,7 @@ export default function Dashboard() {
 
           <TabsContent value="general" className="space-y-6">
             {/* Statistics Overview */}
-            <StatisticsPanel stats={statistics} />
+            <StatisticsPanel stats={statistics} selectedDirection={selectedDirection} />
 
             {/* Filter Panel */}
             <FilterPanel
@@ -255,12 +270,14 @@ export default function Dashboard() {
               selectedDirection={selectedDirection}
               selectedAffiliations={selectedAffiliations}
               selectedDecisions={selectedDecisions}
+              selectedDecisionParents={selectedDecisionParents}
               onYearsChange={setSelectedYears}
               onStatesChange={setSelectedStates}
               onTypesChange={setSelectedTypes}
               onDirectionChange={setSelectedDirection}
               onAffiliationsChange={setSelectedAffiliations}
               onDecisionsChange={setSelectedDecisions}
+              onDecisionParentsChange={setSelectedDecisionParents}
               onClearAll={clearAllFilters}
             />
 
@@ -275,10 +292,14 @@ export default function Dashboard() {
             {/* Research Question Views */}
             <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
               <TabsList className="bg-secondary border border-border p-1 h-auto flex-wrap">
-                <TabsTrigger value="targets" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
+                <TabsTrigger
+                  value="targets"
+                  className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2"
+                >
                   <Target className="h-4 w-4" />
                   <span className="hidden sm:inline">Targets</span>
                 </TabsTrigger>
+
                 <TabsTrigger
                   value="complainants"
                   className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2"
@@ -286,10 +307,15 @@ export default function Dashboard() {
                   <Users className="h-4 w-4" />
                   <span className="hidden sm:inline">Complainants</span>
                 </TabsTrigger>
-                <TabsTrigger value="threats" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  <span className="hidden sm:inline">Threats</span>
-                </TabsTrigger>
+
+                {/* Only render the Threats tab if direction is NOT 'against_press' */}
+                {selectedDirection !== "against_press" && (
+                  <TabsTrigger value="threats" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="hidden sm:inline">Threats</span>
+                  </TabsTrigger>
+                )}
+
                 <TabsTrigger
                   value="accountability"
                   className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2"
@@ -297,10 +323,12 @@ export default function Dashboard() {
                   <Scale className="h-4 w-4" />
                   <span className="hidden sm:inline">Accountability</span>
                 </TabsTrigger>
+
                 <TabsTrigger value="regional" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
                   <MapIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">Regional</span>
                 </TabsTrigger>
+
                 <TabsTrigger value="network" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
                   <Network className="h-4 w-4" />
                   <span className="hidden sm:inline">Network</span>
@@ -318,9 +346,12 @@ export default function Dashboard() {
               </TabsContent>
 
               {/* Q2: Media organizations and journalists facing threats */}
-              <TabsContent value="threats" className="mt-6">
-                <ThreatsAnalysis data={filteredData} />
-              </TabsContent>
+              {/* Only render Threats content when direction is NOT 'against_press' */}
+              {selectedDirection !== "against_press" && (
+                <TabsContent value="threats" className="mt-6">
+                  <ThreatsAnalysis data={filteredData} />
+                </TabsContent>
+              )}
 
               {/* Q5: Case outcomes and accountability */}
               <TabsContent value="accountability" className="mt-6">

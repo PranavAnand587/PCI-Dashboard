@@ -35,12 +35,14 @@ interface FilterPanelProps {
   selectedDirection: "all" | "by_press" | "against_press"
   selectedAffiliations: string[]
   selectedDecisions: string[]
+  selectedDecisionParents: string[]
   onYearsChange: (years: number[]) => void
   onStatesChange: (states: string[]) => void
   onTypesChange: (types: string[]) => void
   onDirectionChange: (direction: "all" | "by_press" | "against_press") => void
   onAffiliationsChange: (affiliations: string[]) => void
   onDecisionsChange: (decisions: string[]) => void
+  onDecisionParentsChange: (parents: string[]) => void
   onClearAll: () => void
 }
 
@@ -53,12 +55,14 @@ export function FilterPanel({
   selectedDirection,
   selectedAffiliations,
   selectedDecisions,
+  selectedDecisionParents,
   onYearsChange,
   onStatesChange,
   onTypesChange,
   onDirectionChange,
   onAffiliationsChange,
   onDecisionsChange,
+  onDecisionParentsChange,
   onClearAll,
 }: FilterPanelProps) {
   const [stateSearch, setStateSearch] = useState("")
@@ -74,6 +78,7 @@ export function FilterPanel({
     const typeCounts = new Map<string, number>()
     const affCounts = new Map<string, number>()
     const decCounts = new Map<string, number>()
+    const decParentCounts = new Map<string, number>()
 
     data.forEach((d) => {
       yearCounts.set(d.year, (yearCounts.get(d.year) || 0) + 1)
@@ -82,9 +87,10 @@ export function FilterPanel({
       affCounts.set(d.complainantAffiliation, (affCounts.get(d.complainantAffiliation) || 0) + 1)
       affCounts.set(d.accusedAffiliation, (affCounts.get(d.accusedAffiliation) || 0) + 1)
       decCounts.set(d.decision, (decCounts.get(d.decision) || 0) + 1)
+      decParentCounts.set(d.decisionParent, (decParentCounts.get(d.decisionParent) || 0) + 1)
     })
 
-    return { yearCounts, stateCounts, typeCounts, affCounts, decCounts }
+    return { yearCounts, stateCounts, typeCounts, affCounts, decCounts, decParentCounts }
   }, [data])
 
   // Use backend filters as source of truth, fallback to derived from data if not loaded
@@ -117,11 +123,29 @@ export function FilterPanel({
   }, [filters, counts.affCounts])
 
   const decisions = useMemo(() => {
-    if (filters?.decisions) {
-      return filters.decisions.map(d => [d, counts.decCounts.get(d) || 0] as [string, number]).sort((a, b) => b[1] - a[1])
+    // If a parent is selected, only show decisions belonging to that parent
+    // We can filter this based on the data
+    let availableDecisions = filters?.decisions || Array.from(counts.decCounts.keys())
+
+    if (selectedDecisionParents.length > 0) {
+      // Filter decisions that appear in rows with the selected parents
+      const validDecisions = new Set(
+        data
+          .filter(d => selectedDecisionParents.includes(d.decisionParent))
+          .map(d => d.decision)
+      )
+      availableDecisions = availableDecisions.filter(d => validDecisions.has(d))
     }
-    return Array.from(counts.decCounts.entries()).sort((a, b) => b[1] - a[1])
-  }, [filters, counts.decCounts])
+
+    return availableDecisions.map(d => [d, counts.decCounts.get(d) || 0] as [string, number]).sort((a, b) => b[1] - a[1])
+  }, [filters, counts.decCounts, selectedDecisionParents, data])
+
+  const decisionParents = useMemo(() => {
+    if (filters?.decision_parents) {
+      return filters.decision_parents.map(p => [p, counts.decParentCounts.get(p) || 0] as [string, number]).sort((a, b) => b[1] - a[1])
+    }
+    return Array.from(counts.decParentCounts.entries()).sort((a, b) => b[1] - a[1])
+  }, [filters, counts.decParentCounts])
 
   const filteredStates = states.filter(([s]) => s.toLowerCase().includes(stateSearch.toLowerCase()))
   const filteredTypes = types.filter(([t]) => t.toLowerCase().includes(typeSearch.toLowerCase()))
@@ -156,13 +180,22 @@ export function FilterPanel({
     )
   }
 
+  const toggleDecisionParent = (parent: string) => {
+    onDecisionParentsChange(
+      selectedDecisionParents.includes(parent) ? selectedDecisionParents.filter(p => p !== parent) : [...selectedDecisionParents, parent]
+    )
+    // Clear specific decisions when parent changes to avoid invalid states? 
+    // Or keep them if they are still valid. For simplicity, we can keep them, the list will just update.
+  }
+
   const totalActiveFilters =
     selectedYears.length +
     selectedStates.length +
     selectedTypes.length +
     (selectedDirection !== "all" ? 1 : 0) +
     selectedAffiliations.length +
-    selectedDecisions.length
+    selectedDecisions.length +
+    selectedDecisionParents.length
 
   return (
     <Card className="bg-card border-border">
@@ -215,17 +248,29 @@ export function FilterPanel({
                   />
                 </Badge>
               )}
-              {selectedYears.map((year) => (
-                <Badge
-                  key={year}
-                  variant="secondary"
-                  className="text-xs gap-1 bg-blue-50 text-blue-700 border-blue-200"
-                >
-                  <Calendar className="h-3 w-3" />
-                  {year}
-                  <X className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive" onClick={() => toggleYear(year)} />
-                </Badge>
-              ))}
+              {/* Years badge: show a single chip for the selected range (or single year) */}
+              {selectedYears.length > 0 && (() => {
+                const min = Math.min(...selectedYears)
+                const max = Math.max(...selectedYears)
+                const label = min === max ? String(min) : `${min}-${max}`
+
+                return (
+                  <Badge
+                    key={`years-${min}-${max}`}
+                    variant="secondary"
+                    className="text-xs gap-1 bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    {label}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
+                      onClick={() => onYearsChange([])}
+                      aria-label="Clear year range"
+                    />
+                  </Badge>
+                )
+              })()}
+
               {selectedStates.map((state) => (
                 <Badge
                   key={state}
@@ -262,6 +307,16 @@ export function FilterPanel({
                   <X
                     className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
                     onClick={() => toggleAffiliation(aff)}
+                  />
+                </Badge>
+              ))}
+              {selectedDecisionParents.map((parent) => (
+                <Badge key={parent} variant="secondary" className="text-xs gap-1 bg-orange-50 text-orange-700 border-orange-200">
+                  <Scale className="h-3 w-3" />
+                  {parent}
+                  <X
+                    className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
+                    onClick={() => toggleDecisionParent(parent)}
                   />
                 </Badge>
               ))}
@@ -367,7 +422,7 @@ export function FilterPanel({
                 </div>
                 <ScrollArea className="h-24">
                   <div className="space-y-1">
-                    {filteredStates.slice(0, 15).map(([state, count]) => (
+                    {filteredStates.map(([state, count]) => (
                       <label
                         key={state}
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
@@ -402,7 +457,7 @@ export function FilterPanel({
                 </div>
                 <ScrollArea className="h-24">
                   <div className="space-y-1">
-                    {filteredTypes.slice(0, 15).map(([type, count]) => (
+                    {filteredTypes.map(([type, count]) => (
                       <label
                         key={type}
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
@@ -437,7 +492,7 @@ export function FilterPanel({
                 </div>
                 <ScrollArea className="h-24">
                   <div className="space-y-1">
-                    {filteredAffiliations.slice(0, 15).map(([aff, count]) => (
+                    {filteredAffiliations.map(([aff, count]) => (
                       <label
                         key={aff}
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
@@ -456,39 +511,64 @@ export function FilterPanel({
               </div>
 
 
-              {/* Decisions Filter */}
+              {/* Decisions Filter (Hierarchical) */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <Scale className="h-3.5 w-3.5 text-red-600" />
                   Decision
                 </div>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                  <Input
-                    placeholder="Search..."
-                    value={decisionSearch}
-                    onChange={(e) => setDecisionSearch(e.target.value)}
-                    className="h-8 text-xs pl-7"
-                  />
+
+                {/* Parent Decision Filter */}
+                <div className="mb-2">
+                  <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Category</div>
+                  <ScrollArea className="h-16 border rounded-md p-1">
+                    <div className="space-y-1">
+                      {decisionParents.map(([parent, count]) => (
+                        <label key={parent} className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                          <Checkbox
+                            checked={selectedDecisionParents.includes(parent)}
+                            onCheckedChange={() => toggleDecisionParent(parent)}
+                            className="h-3 w-3"
+                          />
+                          <span className="flex-1 truncate">{parent}</span>
+                          <span className="text-muted-foreground/60">{count}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </div>
-                <ScrollArea className="h-24">
-                  <div className="space-y-1">
-                    {filteredDecisions.map(([dec, count]) => (
-                      <label
-                        key={dec}
-                        className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                      >
-                        <Checkbox
-                          checked={selectedDecisions.includes(dec)}
-                          onCheckedChange={() => toggleDecision(dec)}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="flex-1 truncate">{dec}</span>
-                        <span className="text-muted-foreground/60">{count}</span>
-                      </label>
-                    ))}
+
+                {/* Specific Decision Filter */}
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Specific Outcome</div>
+                  <div className="relative mb-1">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      placeholder="Search..."
+                      value={decisionSearch}
+                      onChange={(e) => setDecisionSearch(e.target.value)}
+                      className="h-7 text-xs pl-7"
+                    />
                   </div>
-                </ScrollArea>
+                  <ScrollArea className="h-20">
+                    <div className="space-y-1">
+                      {filteredDecisions.map(([dec, count]) => (
+                        <label
+                          key={dec}
+                          className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                        >
+                          <Checkbox
+                            checked={selectedDecisions.includes(dec)}
+                            onCheckedChange={() => toggleDecision(dec)}
+                            className="h-3.5 w-3.5"
+                          />
+                          <span className="flex-1 truncate">{dec}</span>
+                          <span className="text-muted-foreground/60">{count}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
 
               </div>
 

@@ -16,4 +16,13 @@ export interface PCIComplaint {
     accusedAffiliation: string // a_aff_resolved
     complaintDirection: "by_press" | "against_press"
     gender: "male" | "female" | "organization" | "unknown"
+
+    // Normalized fields
+    complaintTypeNormalized: string
+    decisionParent: string
+    decisionSpecific: string
+    complainantCategory: string
+    complainantOccupation: string
+    accusedCategory: string
+    accusedOccupation: string
 }

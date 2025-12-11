@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_BASE_URL = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`
 
 export type TableType = "against" | "by"
 
@@ -17,6 +18,15 @@ export interface Complaint {
   c_aff_resolved: string
   a_aff_resolved: string
   Press: string
+
+  // New normalized columns
+  ComplaintType_Normalized?: string
+  Decision_Parent?: string
+  Decision_Specific?: string
+  Complainant_Category?: string
+  Complainant_Occupation?: string
+  Accused_Category?: string
+  Accused_Occupation?: string
 }
 
 export interface ComplaintStats {
@@ -55,6 +65,9 @@ export interface FiltersResponse {
   complaint_types: string[]
   affiliations: string[]
   decisions: string[]
+  decision_parents: string[]
+  occupations: string[]
+  categories: string[]
 }
 
 // API Functions
@@ -68,12 +81,20 @@ export async function getComplaintsList(params: {
   state?: string
   start_year?: number
   end_year?: number
+  complaint_type?: string
+  decision_parent?: string
+  decision?: string
+  category?: string
 }): Promise<{ data: Complaint[] }> {
   const searchParams = new URLSearchParams()
   searchParams.set("table", params.table)
   if (params.state) searchParams.set("state", params.state)
   if (params.start_year) searchParams.set("start_year", params.start_year.toString())
   if (params.end_year) searchParams.set("end_year", params.end_year.toString())
+  if (params.complaint_type) searchParams.set("complaint_type", params.complaint_type)
+  if (params.decision_parent) searchParams.set("decision_parent", params.decision_parent)
+  if (params.decision) searchParams.set("decision", params.decision)
+  if (params.category) searchParams.set("category", params.category)
 
   const res = await fetch(`${API_BASE_URL}/complaints/list?${searchParams}`)
   if (!res.ok) throw new Error("Failed to fetch complaints")

@@ -44,7 +44,7 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
   const typeDistribution = useMemo(() => {
     const counts = new Map<string, number>()
     data.forEach((d) => {
-      counts.set(d.complaintType, (counts.get(d.complaintType) || 0) + 1)
+      counts.set(d.complaintTypeNormalized, (counts.get(d.complaintTypeNormalized) || 0) + 1)
     })
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
@@ -52,7 +52,7 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
   }, [data])
 
   // Bubble chart: Year x Complaints with media name
-  const bubbleData = useMemo(() => {
+  const { bubbleData, topTargetsByYear } = useMemo(() => {
     const yearMediaCounts: Record<number, Map<string, number>> = {}
     data.forEach((d) => {
       if (!yearMediaCounts[d.year]) yearMediaCounts[d.year] = new Map()
@@ -60,15 +60,30 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
     })
 
     const result: Array<{ year: number; name: string; count: number }> = []
-    Object.entries(yearMediaCounts).forEach(([year, mediaMap]) => {
-      const top5 = Array.from(mediaMap.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
+    const topMap: Record<number, Array<{ fullName: string; count: number }>> = {}
+
+    Object.entries(yearMediaCounts).forEach(([yearStr, mediaMap]) => {
+      const year = Number(yearStr)
+      const sorted = Array.from(mediaMap.entries()).sort((a, b) => b[1] - a[1])
+      const top5 = sorted.slice(0, 5)
+
+      // store top5 full names + counts
+      topMap[year] = top5.map(([fullName, count]) => ({ fullName, count }))
+
+      // bubble entries use truncated name (for display) but full map keeps full names
       top5.forEach(([name, count]) => {
-        result.push({ year: Number(year), name: name.length > 15 ? name.slice(0, 15) + "..." : name, count })
+        result.push({
+          year,
+          name: name.length > 15 ? name.slice(0, 15) + "..." : name,
+          count,
+        })
       })
     })
-    return result
+
+    // sort the bubble data so scatter x ordering is consistent
+    result.sort((a, b) => a.year - b.year || b.count - a.count)
+
+    return { bubbleData: result, topTargetsByYear: topMap }
   }, [data])
 
   // Yearly trend by complaint type
@@ -76,7 +91,7 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
     const yearType: Record<number, Record<string, number>> = {}
     data.forEach((d) => {
       if (!yearType[d.year]) yearType[d.year] = {}
-      yearType[d.year][d.complaintType] = (yearType[d.year][d.complaintType] || 0) + 1
+      yearType[d.year][d.complaintTypeNormalized] = (yearType[d.year][d.complaintTypeNormalized] || 0) + 1
     })
 
     return Object.entries(yearType)
@@ -87,7 +102,18 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
       }))
   }, [data])
 
-  const complaintTypes = Array.from(new Set(data.map((d) => d.complaintType)))
+  const complaintTypes = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    data.forEach((d) => {
+      counts.set(d.complaintTypeNormalized, (counts.get(d.complaintTypeNormalized) || 0) + 1)
+    })
+
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])       // sort by count descending
+      .slice(0, 5)                       // take top 5
+      .map(([type]) => type)             // return only names
+  }, [data])
   const typeColors = [
     "#dc2626",
     "#d97706",
@@ -106,6 +132,52 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
     border: "1px solid #e2e8f0",
     borderRadius: 8,
     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+  }
+
+  function CustomBubbleTooltip(props: any & { topTargetsByYear: Record<number, Array<{ fullName: string; count: number }>> }) {
+    const { active, payload, label, topTargetsByYear } = props
+    if (!active || !payload || payload.length === 0) return null
+
+    // payload[0].payload is the bubble data item
+    const p = payload[0].payload
+    if (!p) return null
+
+    const year: number = p.year
+    const name: string = p.name
+    const count: number = p.count
+
+    const top5 = topTargetsByYear?.[year] || []
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 220 }}>
+        {/* Top 5 panel (compact) */}
+        <div style={{ ...tooltipStyle, padding: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", marginBottom: 6 }}>
+            Top 5 sources — {year}
+          </div>
+          <div style={{ fontSize: 12, color: "#475569" }}>
+            {top5.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>No data</div>
+            ) : (
+              top5.map((t, idx) => (
+                <div key={t.fullName} style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+                    {idx + 1}. {t.fullName}
+                  </div>
+                  <div style={{ fontWeight: 700 }}>{t.count}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Main bubble tooltip */}
+        <div style={{ ...tooltipStyle, padding: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{name}</div>
+          <div style={{ fontSize: 12, color: "#475569" }}>{count} complaints</div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -186,13 +258,8 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
               <YAxis dataKey="count" tick={{ fill: "#64748b", fontSize: 11 }} />
               <ZAxis dataKey="count" range={[50, 400]} />
               <Tooltip
-                contentStyle={tooltipStyle}
-                labelStyle={{ color: "#0f172a" }}
-                formatter={(value: any, name: string) => {
-                  if (name === "count") return [value, "Complaints"]
-                  return [value, name]
-                }}
-                labelFormatter={(label: any, payload: any) => payload[0]?.payload?.name || ""}
+                // pass the topTargetsByYear map to the custom renderer via function closure
+                content={(props: any) => <CustomBubbleTooltip {...props} topTargetsByYear={topTargetsByYear} />}
               />
               <Scatter data={bubbleData} fill="#2563eb">
                 {bubbleData.map((entry, index) => (
@@ -207,7 +274,7 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
       {/* Yearly Trend by Type */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-foreground">Yearly Trend by Complaint Type</CardTitle>
+          <CardTitle className="text-base text-foreground">Yearly Trend of Top 5 Complaint Type</CardTitle>
           <CardDescription className="text-muted-foreground text-xs">
             How different complaint categories have evolved over time
           </CardDescription>

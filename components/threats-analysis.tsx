@@ -30,22 +30,11 @@ export function ThreatsAnalysis({ data }: ThreatsAnalysisProps) {
   const threatTypes = useMemo(() => {
     const counts = new Map<string, number>()
     data.forEach((d) => {
-      counts.set(d.complaintType, (counts.get(d.complaintType) || 0) + 1)
+      counts.set(d.complaintTypeNormalized, (counts.get(d.complaintTypeNormalized) || 0) + 1)
     })
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([type, count]) => ({ type, count }))
-  }, [data])
-
-  // Sources of threats (who threatens the press)
-  const threatSources = useMemo(() => {
-    const counts = new Map<string, number>()
-    data.forEach((d) => {
-      counts.set(d.accusedAffiliation, (counts.get(d.accusedAffiliation) || 0) + 1)
-    })
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([source, count]) => ({ source, count }))
   }, [data])
 
   // Yearly trend of threats
@@ -144,32 +133,6 @@ export function ThreatsAnalysis({ data }: ThreatsAnalysisProps) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Sources of Threats */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base text-foreground">Primary Sources of Threats</CardTitle>
-          <CardDescription className="text-muted-foreground text-xs">
-            Who threatens the press? (Accused affiliations)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={threatSources} margin={{ bottom: 60 }}>
-              <XAxis
-                dataKey="source"
-                tick={{ fill: "#64748b", fontSize: 10 }}
-                angle={-45}
-                textAnchor="end"
-                interval={0}
-              />
-              <YAxis tick={{ fill: "#64748b", fontSize: 11 }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="count" fill="#dc2626" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
 
       {/* Yearly Trend */}
       <Card className="bg-card border-border">

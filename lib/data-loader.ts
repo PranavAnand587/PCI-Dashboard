@@ -1,7 +1,8 @@
 import type { PCIComplaint } from "./types"
 import type { Complaint } from "./api"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_BASE_URL = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`
 
 // Transform backend complaint data to dashboard format
 function transformComplaint(complaint: Complaint, table: "against" | "by"): PCIComplaint {
@@ -34,6 +35,15 @@ function transformComplaint(complaint: Complaint, table: "against" | "by"): PCIC
         accusedAffiliation: complaint.a_aff_resolved || "Unknown",
         complaintDirection,
         gender: "unknown" as const, // We don't have this data, default to unknown
+
+        // Map normalized fields
+        complaintTypeNormalized: complaint.ComplaintType_Normalized || complaint.ComplaintType || "Unknown",
+        decisionParent: complaint.Decision_Parent || "Pending",
+        decisionSpecific: complaint.Decision_Specific || complaint.Decision || "Pending",
+        complainantCategory: complaint.Complainant_Category || "Unknown",
+        complainantOccupation: complaint.Complainant_Occupation || "Unknown",
+        accusedCategory: complaint.Accused_Category || "Unknown",
+        accusedOccupation: complaint.Accused_Occupation || "Unknown",
     }
 }
 
@@ -59,7 +69,7 @@ export async function fetchAllComplaints(): Promise<PCIComplaint[]> {
 
         const allComplaints = [...byComplaints, ...againstComplaints]
 
-        console.log(`Loaded ${allComplaints.length} complaints from API (${byComplaints.length} by press, ${againstComplaints.length} against press)`)
+        // console.log(`Loaded ${allComplaints.length} complaints from API (${byComplaints.length} by press, ${againstComplaints.length} against press)`)
 
         return allComplaints
     } catch (error) {
@@ -75,12 +85,29 @@ export async function fetchFilteredComplaints(params: {
     state?: string
     start_year?: number
     end_year?: number
+    complaint_type?: string
+    decision_parent?: string
+    decision?: string
+    category?: string
 }): Promise<PCIComplaint[]> {
     try {
         const table = params.table || "both"
 
         if (table === "both") {
-            // Fetch from both tables
+            // Fetch from both tables (Note: filtering on both tables with specific params might need more logic if params differ, 
+            // but for now we assume common params or handle it simply)
+            // Actually, if filtering is applied, we should probably fetch individually with params
+            if (params.state || params.start_year || params.end_year || params.complaint_type || params.decision_parent || params.decision || params.category) {
+                const [byResponse, againstResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/complaints/list?table=by&` + new URLSearchParams(params as any).toString(), { cache: 'no-store' }),
+                    fetch(`${API_BASE_URL}/complaints/list?table=against&` + new URLSearchParams(params as any).toString(), { cache: 'no-store' }),
+                ])
+                const byData = await byResponse.json()
+                const againstData = await againstResponse.json()
+                const byComplaints = byData.data.map((c: any) => transformComplaint(c, "by"))
+                const againstComplaints = againstData.data.map((c: any) => transformComplaint(c, "against"))
+                return [...byComplaints, ...againstComplaints]
+            }
             return fetchAllComplaints()
         }
 
@@ -90,6 +117,10 @@ export async function fetchFilteredComplaints(params: {
         if (params.state) searchParams.set("state", params.state)
         if (params.start_year) searchParams.set("start_year", params.start_year.toString())
         if (params.end_year) searchParams.set("end_year", params.end_year.toString())
+        if (params.complaint_type) searchParams.set("complaint_type", params.complaint_type)
+        if (params.decision_parent) searchParams.set("decision_parent", params.decision_parent)
+        if (params.decision) searchParams.set("decision", params.decision)
+        if (params.category) searchParams.set("category", params.category)
 
         const response = await fetch(`${API_BASE_URL}/complaints/list?${searchParams}`, { cache: 'no-store' })
 

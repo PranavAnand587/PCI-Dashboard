@@ -14,9 +14,14 @@ interface StatisticsPanelProps {
     statesCovered: number
     yearsSpanned: number
   }
+  selectedDirection?: "all" | "by_press" | "against_press"
 }
 
-export function StatisticsPanel({ stats }: StatisticsPanelProps) {
+export function StatisticsPanel({ stats, selectedDirection = "all" }: StatisticsPanelProps) {
+  // Determine what to display based on selected direction
+  const byPressDisplay = selectedDirection === "against_press" ? "N/A" : stats.byPress.toLocaleString()
+  const againstPressDisplay = selectedDirection === "by_press" ? "N/A" : stats.againstPress.toLocaleString()
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
       <Card className="bg-card border-border p-4">
@@ -32,7 +37,7 @@ export function StatisticsPanel({ stats }: StatisticsPanelProps) {
           <Shield className="h-3.5 w-3.5 text-blue-600" />
           By Press
         </div>
-        <p className="text-2xl font-bold text-blue-600 mt-2">{stats.byPress.toLocaleString()}</p>
+        <p className="text-2xl font-bold text-blue-600 mt-2">{byPressDisplay}</p>
         <p className="text-muted-foreground text-xs mt-1">threats reported</p>
       </Card>
 
@@ -41,7 +46,7 @@ export function StatisticsPanel({ stats }: StatisticsPanelProps) {
           <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
           Against Press
         </div>
-        <p className="text-2xl font-bold text-amber-600 mt-2">{stats.againstPress.toLocaleString()}</p>
+        <p className="text-2xl font-bold text-amber-600 mt-2">{againstPressDisplay}</p>
         <p className="text-muted-foreground text-xs mt-1">media complaints</p>
       </Card>
 

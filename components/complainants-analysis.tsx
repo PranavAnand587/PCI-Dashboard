@@ -27,57 +27,58 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
   // Note: This component is designed for "against press" complaints,
   // but will work with any filtered data passed to it
 
-  // Top complainants by affiliation
-  const complainantAffiliations = useMemo(() => {
+  // Top complainants by occupation
+  const complainantOccupations = useMemo(() => {
     const counts = new Map<string, number>()
     data.forEach((d) => {
-      counts.set(d.complainantAffiliation, (counts.get(d.complainantAffiliation) || 0) + 1)
+      const occ = d.complainantOccupation || "Unknown"
+      counts.set(occ, (counts.get(occ) || 0) + 1)
     })
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
-      .map(([affiliation, count]) => ({ affiliation, count }))
+      .map(([occupation, count]) => ({ occupation, count }))
   }, [data])
 
-  // Government vs Non-Government breakdown
+  // Government vs Non-Government breakdown (using Category)
   const govVsNonGov = useMemo(() => {
-    const govAffiliations = [
-      "Police",
-      "Politician",
-      "Government Official",
-      "IAS Officer",
-      "IPS Officer",
-      "Municipal Authority",
-      "State Government",
-      "Central Government",
-    ]
     let gov = 0,
       nonGov = 0
+
     data.forEach((d) => {
-      if (govAffiliations.includes(d.complainantAffiliation)) gov++
-      else nonGov++
+      // Check if category is Government or Political
+      const cat = d.complainantCategory
+      if (cat === "Government" || cat === "Political") {
+        gov++
+      } else {
+        nonGov++
+      }
     })
+
     return [
       { name: "Government/Political", value: gov, fill: "#dc2626" },
       { name: "Non-Government", value: nonGov, fill: "#2563eb" },
     ]
   }, [data])
 
-  // Complainant affiliation by complaint type
-  const affiliationByType = useMemo(() => {
+  // Complainant occupation by complaint type (Normalized)
+  const occupationByType = useMemo(() => {
     const matrix: Record<string, Record<string, number>> = {}
     data.forEach((d) => {
-      if (!matrix[d.complaintType]) matrix[d.complaintType] = {}
-      matrix[d.complaintType][d.complainantAffiliation] = (matrix[d.complaintType][d.complainantAffiliation] || 0) + 1
+      const type = d.complaintTypeNormalized || "Unknown"
+      const occ = d.complainantOccupation || "Unknown"
+
+      if (!matrix[type]) matrix[type] = {}
+      matrix[type][occ] = (matrix[type][occ] || 0) + 1
     })
 
     return Object.entries(matrix)
-      .map(([type, affiliations]) => {
-        const topAff = Object.entries(affiliations).sort((a, b) => b[1] - a[1])[0]
+      .map(([type, occupations]) => {
+        const topOcc = Object.entries(occupations).sort((a, b) => b[1] - a[1])[0]
         return {
           type,
-          topComplainant: topAff?.[0] || "Unknown",
-          count: topAff?.[1] || 0,
-          total: Object.values(affiliations).reduce((a, b) => a + b, 0),
+          topComplainant: topOcc?.[0] || "Unknown",
+          count: topOcc?.[1] || 0,
+          total: Object.values(occupations).reduce((a, b) => a + b, 0),
         }
       })
       .sort((a, b) => b.total - a.total)
@@ -85,21 +86,13 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
 
   // Yearly trend: Government vs Non-Government
   const yearlyGovTrend = useMemo(() => {
-    const govAffiliations = [
-      "Police",
-      "Politician",
-      "Government Official",
-      "IAS Officer",
-      "IPS Officer",
-      "Municipal Authority",
-      "State Government",
-      "Central Government",
-    ]
     const yearData: Record<number, { gov: number; nonGov: number }> = {}
 
     data.forEach((d) => {
       if (!yearData[d.year]) yearData[d.year] = { gov: 0, nonGov: 0 }
-      if (govAffiliations.includes(d.complainantAffiliation)) {
+
+      const cat = d.complainantCategory
+      if (cat === "Government" || cat === "Political") {
         yearData[d.year].gov++
       } else {
         yearData[d.year].nonGov++
@@ -161,22 +154,22 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
           </CardContent>
         </Card>
 
-        {/* Top Complainant Affiliations */}
+        {/* Top Complainant Occupations */}
         <Card className="bg-card border-border lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base text-foreground">Top Complainant Affiliations</CardTitle>
+            <CardTitle className="text-base text-foreground">Top Complainant Occupations</CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
               Primary sources of complaints against press
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={complainantAffiliations.slice(0, 10)} layout="vertical" margin={{ left: 20 }}>
+              <BarChart data={complainantOccupations.slice(0, 10)} layout="vertical" margin={{ left: 20 }}>
                 <XAxis type="number" tick={{ fill: "#64748b", fontSize: 11 }} />
-                <YAxis dataKey="affiliation" type="category" tick={{ fill: "#64748b", fontSize: 10 }} width={120} />
+                <YAxis dataKey="occupation" type="category" tick={{ fill: "#64748b", fontSize: 10 }} width={120} />
                 <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: "#0f172a" }} />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                  {complainantAffiliations.slice(0, 10).map((entry, index) => (
+                  {complainantOccupations.slice(0, 10).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={affColors[index % affColors.length]} />
                   ))}
                 </Bar>
@@ -215,7 +208,7 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-foreground">Top Complainant per Complaint Type</CardTitle>
           <CardDescription className="text-muted-foreground text-xs">
-            Which affiliations dominate each complaint category
+            Which occupations dominate each complaint category
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -230,7 +223,7 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
                 </tr>
               </thead>
               <tbody>
-                {affiliationByType.slice(0, 10).map((row) => (
+                {occupationByType.slice(0, 10).map((row) => (
                   <tr key={row.type} className="border-b border-border hover:bg-secondary/50">
                     <td className="py-2 px-3 text-foreground">{row.type}</td>
                     <td className="py-2 px-3 text-muted-foreground">{row.topComplainant}</td>
