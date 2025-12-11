@@ -134,8 +134,17 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
   }
 
-  function CustomBubbleTooltip(props: any & { topTargetsByYear: Record<number, Array<{ fullName: string; count: number }>> }) {
-    const { active, payload, label, topTargetsByYear } = props
+  function CustomBubbleTooltip({
+    active,
+    payload,
+    label,
+    topTargetsByYear,
+  }: {
+    active?: boolean
+    payload?: any[]
+    label?: any
+    topTargetsByYear: Record<number, Array<{ fullName: string; count: number }>>
+  }) {
     if (!active || !payload || payload.length === 0) return null
 
     // payload[0].payload is the bubble data item
