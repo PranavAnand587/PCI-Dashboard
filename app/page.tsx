@@ -60,7 +60,6 @@ export default function Dashboard() {
   const [selectedDirection, setSelectedDirection] = useState<"all" | "by_press" | "against_press">("all")
   const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([])
   const [selectedDecisions, setSelectedDecisions] = useState<string[]>([])
-  const [selectedDecisionParents, setSelectedDecisionParents] = useState<string[]>([])
   const [activeView, setActiveView] = useState("targets")
 
   // If the user switches to 'against_press', hide the threats tab and ensure activeView isn't 'threats'
@@ -69,6 +68,12 @@ export default function Dashboard() {
       setActiveView("targets")
     }
   }, [selectedDirection, activeView])
+
+  // Data filtered only by direction, for the FilterPanel counts
+  const directionFilteredData = useMemo(() => {
+    if (selectedDirection === "all") return allData
+    return allData.filter((d) => d.complaintDirection === selectedDirection)
+  }, [allData, selectedDirection])
 
   // Filtered data based on all active filters
   const filteredData = useMemo(() => {
@@ -83,7 +88,6 @@ export default function Dashboard() {
           selectedAffiliations.includes(item.accusedAffiliation)
         if (!hasAffiliation) return false
       }
-      if (selectedDecisionParents.length > 0 && !selectedDecisionParents.includes(item.decisionParent)) return false
       if (selectedDecisions.length > 0 && !selectedDecisions.includes(item.decision)) return false
       return true
     })
@@ -107,7 +111,6 @@ export default function Dashboard() {
     selectedDirection,
     selectedAffiliations,
     selectedDecisions,
-    selectedDecisionParents,
   ])
 
   // State data for map
@@ -154,7 +157,6 @@ export default function Dashboard() {
     selectedDirection !== "all" ? 1 : 0,
     selectedAffiliations.length,
     selectedDecisions.length,
-    selectedDecisionParents.length,
   ].reduce((a, b) => a + b, 0)
 
   const clearAllFilters = () => {
@@ -164,7 +166,6 @@ export default function Dashboard() {
     setSelectedDirection("all")
     setSelectedAffiliations([])
     setSelectedDecisions([])
-    setSelectedDecisionParents([])
   }
 
   const handleStateClick = (state: string) => {
@@ -262,7 +263,7 @@ export default function Dashboard() {
 
             {/* Filter Panel */}
             <FilterPanel
-              data={allData}
+              data={directionFilteredData}
               filters={filters}
               selectedYears={selectedYears}
               selectedStates={selectedStates}
@@ -270,14 +271,12 @@ export default function Dashboard() {
               selectedDirection={selectedDirection}
               selectedAffiliations={selectedAffiliations}
               selectedDecisions={selectedDecisions}
-              selectedDecisionParents={selectedDecisionParents}
               onYearsChange={setSelectedYears}
               onStatesChange={setSelectedStates}
               onTypesChange={setSelectedTypes}
               onDirectionChange={setSelectedDirection}
               onAffiliationsChange={setSelectedAffiliations}
               onDecisionsChange={setSelectedDecisions}
-              onDecisionParentsChange={setSelectedDecisionParents}
               onClearAll={clearAllFilters}
             />
 

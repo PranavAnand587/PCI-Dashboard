@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import * as topojson from 'topojson-client'
 
-const CACHE_KEY = 'india-geojson-v1'
-const GEOJSON_URL = '/india.json'
+const CACHE_KEY = 'india-geojson-v2'
+const GEOJSON_URL = '/india_v2.json'
 
 export interface GeoJSONFeature {
     type: 'Feature'
@@ -12,6 +12,12 @@ export interface GeoJSONFeature {
     }
     geometry: any
 }
+
+function normalizeStateName(name: string) {
+    if (name === 'Orissa' || name === 'Orrisa') return 'Odisha'
+    return name
+}
+
 
 export function useIndiaGeoJSON() {
     const [data, setData] = useState<GeoJSONFeature[] | null>(null)
@@ -54,6 +60,7 @@ export function useIndiaGeoJSON() {
                         const geojson = topojson.feature(topology, topology.objects[keys[0]]) as any
                         const features = geojson.features
 
+
                         // Cache and set state
                         try {
                             localStorage.setItem(CACHE_KEY, JSON.stringify(features))
@@ -69,7 +76,14 @@ export function useIndiaGeoJSON() {
                 }
 
                 const geojson = topojson.feature(topology, topology.objects[objectName]) as any
-                const features = geojson.features
+                const features = geojson.features.map((f: any) => ({
+                    ...f,
+                    properties: {
+                        ...f.properties,
+                        name: normalizeStateName(f.properties?.name)
+                    }
+                }))
+
 
                 // 4. Cache result
                 try {

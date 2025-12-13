@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   ResponsiveContainer,
@@ -23,6 +23,25 @@ interface TargetsAnalysisProps {
   data: PCIComplaint[]
 }
 
+function wrapByLength(text: string, maxChars = 18) {
+  const words = text.split(" ")
+  const lines: string[] = []
+  let current = ""
+
+  for (const w of words) {
+    if ((current + " " + w).trim().length > maxChars) {
+      lines.push(current)
+      current = w
+    } else {
+      current = current ? `${current} ${w}` : w
+    }
+  }
+
+  if (current) lines.push(current)
+  return lines
+}
+
+
 export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
   // Use the data as-is (already filtered by parent component)
   // Note: This component is designed for "against press" complaints,
@@ -31,14 +50,28 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
   // Top media organizations targeted
   const topTargets = useMemo(() => {
     const counts = new Map<string, number>()
+
     data.forEach((d) => {
-      counts.set(d.against, (counts.get(d.against) || 0) + 1)
+      const label =
+        d.accusedAffiliation && d.accusedAffiliation !== "Editor" && d.accusedAffiliation !== "Unknown"
+          ? `${d.accusedAffiliation} – ${d.against}`
+          : d.against
+      counts.set(label, (counts.get(label) || 0) + 1)
     })
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 15)
-      .map(([name, count]) => ({ name: name.length > 20 ? name.slice(0, 20) + "..." : name, fullName: name, count }))
+      .map(([name, count]) => ({
+        name,          // full label for axis
+        fullName: name, // keep if you want it elsewhere
+        count,
+      }))
   }, [data])
+
+  useEffect(() => {
+    console.log("TOP TARGETS SAMPLE:", topTargets.slice(0, 5))
+  }, [topTargets])
+
 
   // Complaint types distribution
   const typeDistribution = useMemo(() => {
@@ -189,6 +222,33 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
     )
   }
 
+  const WrappedYAxisTick = ({ x, y, payload }: any) => {
+    const value = String(payload?.value || "")
+    const lines = wrapByLength(value, 18)
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          x={-5}
+          y={0}
+          dy={4}
+          textAnchor="end"
+          fill="#64748b"
+          fontSize={10}
+        >
+          {lines.map((line, idx) => (
+            <tspan key={idx} x={-5} dy={idx === 0 ? 0 : 12}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      </g>
+    )
+  }
+
+
+
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -203,13 +263,41 @@ export function TargetsAnalysis({ data }: TargetsAnalysisProps) {
           <CardContent>
             <ResponsiveContainer width="100%" height={400}>
               <BarChart data={topTargets} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 11 }} />
-                <YAxis dataKey="name" type="category" tick={{ fill: "#64748b", fontSize: 10 }} width={120} />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  labelStyle={{ color: "#0f172a" }}
-                  formatter={(value: number, name: string, props: any) => [value, props.payload.fullName]}
+                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 12 }} />
+
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  interval={0}
+                  width={150}          // ← IMPORTANT
+                  tick={<WrappedYAxisTick />}
                 />
+
+
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload || !payload.length) return null
+
+                    return (
+                      <div
+                        style={{
+                          background: "#fff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 8,
+                          padding: "6px 10px",
+                          fontSize: 12,
+                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                        }}
+                      >
+                        <div style={{ fontWeight: 600 }}>
+                          {payload[0].value} complaints
+                        </div>
+                      </div>
+                    )
+                  }}
+                />
+
+
                 <Bar dataKey="count" fill="#d97706" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>

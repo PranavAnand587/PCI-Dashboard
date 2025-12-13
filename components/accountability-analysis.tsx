@@ -11,34 +11,60 @@ interface AccountabilityAnalysisProps {
 
 export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
   // Overall decision distribution (Parent)
-  const decisionDistribution = useMemo(() => {
+  // const decisionDistribution = useMemo(() => {
+  //   const counts = new Map<string, number>()
+  //   data.forEach((d) => counts.set(d.decisionParent, (counts.get(d.decisionParent) || 0) + 1))
+  //   return Array.from(counts.entries())
+  //     .sort((a, b) => b[1] - a[1])
+  //     .map(([decision, count]) => ({ decision, count }))
+  // }, [data])
+
+  const decisionCounts = useMemo(() => {
     const counts = new Map<string, number>()
-    data.forEach((d) => counts.set(d.decisionParent, (counts.get(d.decisionParent) || 0) + 1))
-    return Array.from(counts.entries())
+
+    data.forEach(d => {
+      const decision = d.decisionSpecific || "Unknown"
+      counts.set(decision, (counts.get(decision) || 0) + 1)
+    })
+
+    const sorted = Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
-      .map(([decision, count]) => ({ decision, count }))
+
+    // Top N logic
+    const TOP_N = 10
+    if (sorted.length <= TOP_N) {
+      return sorted.map(([decision, count]) => ({ decision, count }))
+    }
+
+    const top = sorted.slice(0, TOP_N)
+    const rest = sorted.slice(TOP_N)
+    const otherCount = rest.reduce((sum, [, c]) => sum + c, 0)
+
+    return [
+      ...top.map(([decision, count]) => ({ decision, count })),
+      { decision: "All Other Decisions", count: otherCount },
+    ]
   }, [data])
 
+
   // Decision by accused occupation
-  const decisionByOccupation = useMemo(() => {
+  const decisionByCategory = useMemo(() => {
     const matrix: Record<string, Record<string, number>> = {}
     data.forEach((d) => {
-      const occ = d.accusedOccupation || "Unknown"
-      if (!matrix[occ]) matrix[occ] = {}
-      matrix[occ][d.decisionParent] = (matrix[occ][d.decisionParent] || 0) + 1
+      const category = d.accusedCategory || "Unknown" // Changed from accusedOccupation
+      if (!matrix[category]) matrix[category] = {}
+      matrix[category][d.decisionParent] = (matrix[category][d.decisionParent] || 0) + 1
     })
 
     return Object.entries(matrix)
-      .map(([occupation, decisions]) => {
+      .map(([category, decisions]) => {
         const total = Object.values(decisions).reduce((a, b) => a + b, 0)
         const upheld = decisions["Upheld"] || 0
-        const closed = decisions["Closed"] || 0
         return {
-          occupation: occupation.length > 18 ? occupation.slice(0, 18) + "..." : occupation,
-          fullOccupation: occupation,
+          category,
           Upheld: upheld,
-          Closed: closed,
-          Other: total - upheld - closed,
+          Closed: decisions["Closed"] || 0,
+          Other: total - upheld - (decisions["Closed"] || 0),
           total,
           upheldRate: total > 0 ? ((upheld / total) * 100).toFixed(1) : "0",
         }
@@ -73,12 +99,12 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
   }, [data])
 
   // Upheld Rate by Accused Occupation (Top 5)
-  const upheldRateByOccupation = useMemo(() => {
-    return decisionByOccupation
-      .filter(d => d.total > 10) // Filter out low sample sizes
+  const upheldRateByCategory = useMemo(() => {
+    return decisionByCategory
+      .filter(d => d.total >= 20) // Increased from 10 to 50!
       .sort((a, b) => parseFloat(b.upheldRate) - parseFloat(a.upheldRate))
       .slice(0, 8)
-  }, [decisionByOccupation])
+  }, [decisionByCategory])
 
   const decisionColors: Record<string, string> = {
     Upheld: "#16a34a",
@@ -102,33 +128,30 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
         {/* Overall Decision Distribution */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base text-foreground">Overall Decisions</CardTitle>
-            <CardDescription className="text-muted-foreground text-xs">Case outcome distribution (High Level)</CardDescription>
+            <CardTitle>Specific Decision Outcomes</CardTitle>
+            <CardDescription className="text-muted-foreground text-xs">
+              Most frequent decision texts as recorded in orders
+            </CardDescription>
+
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={decisionDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  dataKey="count"
-                  nameKey="decision"
-                  label={(props) => {
-                    const decision = props.payload?.decision || props.name
-                    const percent = props.percent || 0
-                    return `${decision}: ${(percent * 100).toFixed(0)}%`
-                  }}
-                  labelLine={false}
-                >
-                  {decisionDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={decisionColors[entry.decision] || "#64748b"} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-              </PieChart>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={decisionCounts}>
+                  <XAxis
+                    dataKey="decision"
+                    tick={{ fill: "#64748b", fontSize: 11 }}
+                    interval={0}
+                    angle={-30}
+                    textAnchor="end"
+                    height={70}
+                  />
+                  <YAxis tick={{ fill: "#64748b", fontSize: 11 }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -136,19 +159,35 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
         {/* Upheld Rate by Accused Occupation */}
         <Card className="bg-card border-border lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base text-foreground">Highest Upheld Rates by Accused Occupation</CardTitle>
+            <CardTitle className="text-base text-foreground">
+              Highest Upheld Rates by Accused Category
+            </CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
-              Which occupations face the most upheld complaints? (Min 10 cases)
+              Categories inferred from affiliation text using rule-based methods.
+              Minimum 20 cases required. Results indicate trends, not causal attribution.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={upheldRateByOccupation}>
-                <XAxis dataKey="occupation" tick={{ fill: "#64748b", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#64748b", fontSize: 11 }} domain={[0, 100]} unit="%" />
+              <BarChart data={upheldRateByCategory}>
+                <XAxis
+                  dataKey="category"
+                  tick={{ fill: "#64748b", fontSize: 11 }}
+                />
+                <YAxis
+                  tick={{ fill: "#64748b", fontSize: 11 }}
+                  domain={[0, 100]}
+                  unit="%"
+                />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  formatter={(value: number) => [`${value}%`, "Upheld Rate"]}
+                  formatter={(value: number, name: string, props: any) => {
+                    const item = props.payload
+                    return [
+                      `${value}%`,
+                      `Upheld Rate (${item.Upheld}/${item.total} cases)`
+                    ]
+                  }}
                 />
                 <Bar dataKey="upheldRate" fill="#16a34a" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -157,20 +196,32 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
         </Card>
       </div>
 
-      {/* Decision by Accused Occupation */}
+      {/* Decision by Accused Category */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-foreground">Decisions by Accused Occupation</CardTitle>
+          <CardTitle className="text-base text-foreground">
+            Decisions by Accused Category
+          </CardTitle>
           <CardDescription className="text-muted-foreground text-xs">
-            How outcomes vary based on who the accused is
+            Outcomes grouped by broad accused category (rule-based inference)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={decisionByOccupation.slice(0, 12)} layout="vertical" margin={{ left: 20 }}>
+            <BarChart
+              data={decisionByCategory.slice(0, 12)}
+              layout="vertical"
+              margin={{ left: 60 }}
+            >
               <XAxis type="number" tick={{ fill: "#64748b", fontSize: 11 }} />
-              <YAxis dataKey="occupation" type="category" tick={{ fill: "#64748b", fontSize: 10 }} width={130} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(value: number, name: string) => [value, name]} />
+              <YAxis
+                dataKey="category"
+                type="category"
+                interval={0}
+                tick={{ fill: "#64748b", fontSize: 11 }}
+                width={140}
+              />
+              <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Upheld" stackId="a" fill="#16a34a" />
               <Bar dataKey="Closed" stackId="a" fill="#dc2626" />
@@ -179,6 +230,7 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
 
       {/* Decision by Complaint Type */}
       <Card className="bg-card border-border">

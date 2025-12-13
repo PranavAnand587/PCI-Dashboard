@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         // Cache static GeoJSON file
-        source: '/india.json',
+        source: '/india_v2.json',
         headers: [
           {
             key: 'Cache-Control',
