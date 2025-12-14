@@ -20,12 +20,29 @@ import type { PCIComplaint } from "@/lib/types"
 
 interface ComplainantsAnalysisProps {
   data: PCIComplaint[]
+  selectedDirection: "all" | "by_press" | "against_press"
 }
 
-export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
+export function ComplainantsAnalysis({ data, selectedDirection }: ComplainantsAnalysisProps) {
   // Use the data as-is (already filtered by parent component)
   // Note: This component is designed for "against press" complaints,
   // but will work with any filtered data passed to it
+
+  // Dynamic subtitles based on direction
+  let govSubtitle = "Government vs non-government involvement across complaints"
+  let occSubtitle = "Occupational profile of complainants across all cases"
+
+  switch (selectedDirection) {
+    case "against_press":
+      govSubtitle = "Who files complaints against the press?"
+      occSubtitle = "Primary sources of complaints against the press"
+      break
+
+    case "by_press":
+      govSubtitle = "Who is accused in complaints filed by the press?"
+      occSubtitle = "Who within the press files complaints?"
+      break
+  }
 
   // Top complainants by occupation
   const complainantOccupations = useMemo(() => {
@@ -124,7 +141,7 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground">Government vs Non-Government</CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
-              Who files complaints against the press?
+              {govSubtitle}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -155,11 +172,12 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
         </Card>
 
         {/* Top Complainant Occupations */}
+        {/* {selectedDirection !== "by_press" && ( */}
         <Card className="bg-card border-border lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground">Top Complainant Occupations</CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
-              Primary sources of complaints against press
+              {occSubtitle}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -177,6 +195,7 @@ export function ComplainantsAnalysis({ data }: ComplainantsAnalysisProps) {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+        {/* )} */}
       </div>
 
       {/* Yearly Trend */}

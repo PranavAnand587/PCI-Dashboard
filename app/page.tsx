@@ -344,7 +344,7 @@ export default function Dashboard() {
 
               {/* Q4: Who are the primary complainants? */}
               <TabsContent value="complainants" className="mt-6">
-                <ComplainantsAnalysis data={filteredData} />
+                <ComplainantsAnalysis data={filteredData} selectedDirection={selectedDirection} />
               </TabsContent>
 
               {/* Q2: Media organizations and journalists facing threats */}
