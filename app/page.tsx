@@ -334,9 +334,12 @@ export default function Dashboard() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Q1: Which news-sources are the primary targets of complaints? */}
+              {/* Q1: Who is being targeted? (Context-aware) */}
               <TabsContent value="targets" className="mt-6">
-                <TargetsAnalysis data={filteredData} />
+                <TargetsAnalysis
+                  data={filteredData}
+                  selectedDirection={selectedDirection}
+                />
               </TabsContent>
 
               {/* Q4: Who are the primary complainants? */}
