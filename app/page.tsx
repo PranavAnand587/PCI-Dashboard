@@ -62,9 +62,9 @@ export default function Dashboard() {
   const [selectedDecisions, setSelectedDecisions] = useState<string[]>([])
   const [activeView, setActiveView] = useState("targets")
 
-  // If the user switches to 'against_press', hide the threats tab and ensure activeView isn't 'threats'
+  // If the user switches to anything other than 'by_press', hide the threats tab and ensure activeView isn't 'threats'
   useEffect(() => {
-    if (selectedDirection === "against_press" && activeView === "threats") {
+    if (selectedDirection !== "by_press" && activeView === "threats") {
       setActiveView("targets")
     }
   }, [selectedDirection, activeView])
@@ -307,8 +307,8 @@ export default function Dashboard() {
                   <span className="hidden sm:inline">Complainants</span>
                 </TabsTrigger>
 
-                {/* Only render the Threats tab if direction is NOT 'against_press' */}
-                {selectedDirection !== "against_press" && (
+                {/* Only render the Threats tab if direction is 'by_press' */}
+                {selectedDirection === "by_press" && (
                   <TabsTrigger value="threats" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
                     <TrendingUp className="h-4 w-4" />
                     <span className="hidden sm:inline">Threats</span>
@@ -348,8 +348,8 @@ export default function Dashboard() {
               </TabsContent>
 
               {/* Q2: Media organizations and journalists facing threats */}
-              {/* Only render Threats content when direction is NOT 'against_press' */}
-              {selectedDirection !== "against_press" && (
+              {/* Only render Threats content when direction is 'by_press' */}
+              {selectedDirection === "by_press" && (
                 <TabsContent value="threats" className="mt-6">
                   <ThreatsAnalysis data={filteredData} />
                 </TabsContent>
@@ -357,7 +357,7 @@ export default function Dashboard() {
 
               {/* Q5: Case outcomes and accountability */}
               <TabsContent value="accountability" className="mt-6">
-                <AccountabilityAnalysis data={filteredData} />
+                <AccountabilityAnalysis data={filteredData} selectedDirection={selectedDirection} />
               </TabsContent>
 
               {/* Q3: State-wise hotspots */}

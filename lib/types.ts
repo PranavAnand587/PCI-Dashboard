@@ -25,4 +25,5 @@ export interface PCIComplaint {
     complainantOccupation: string
     accusedCategory: string
     accusedOccupation: string
+    level?: string
 }

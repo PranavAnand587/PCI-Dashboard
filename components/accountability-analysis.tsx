@@ -7,9 +7,10 @@ import type { PCIComplaint } from "@/lib/types"
 
 interface AccountabilityAnalysisProps {
   data: PCIComplaint[]
+  selectedDirection: "all" | "by_press" | "against_press"
 }
 
-export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
+export function AccountabilityAnalysis({ data, selectedDirection }: AccountabilityAnalysisProps) {
   // Overall decision distribution (Parent)
   // const decisionDistribution = useMemo(() => {
   //   const counts = new Map<string, number>()
@@ -47,11 +48,17 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
   }, [data])
 
 
-  // Decision by accused occupation
+  // Decision by accused occupation or level
   const decisionByCategory = useMemo(() => {
     const matrix: Record<string, Record<string, number>> = {}
     data.forEach((d) => {
-      const category = d.accusedCategory || "Unknown" // Changed from accusedOccupation
+      let category = d.accusedCategory || "Unknown"
+
+      // Use level for against_press direction
+      if (selectedDirection === "against_press") {
+        category = d.level || "Unknown"
+      }
+
       if (!matrix[category]) matrix[category] = {}
       matrix[category][d.decisionParent] = (matrix[category][d.decisionParent] || 0) + 1
     })
@@ -160,11 +167,12 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
         <Card className="bg-card border-border lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground">
-              Highest Upheld Rates by Accused Category
+              {selectedDirection === "against_press" ? "Highest Upheld Rates by Press Level" : "Highest Upheld Rates by Accused Category"}
             </CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
-              Categories inferred from affiliation text using rule-based methods.
-              Minimum 20 cases required. Results indicate trends, not causal attribution.
+              {selectedDirection === "against_press"
+                ? "Upheld rates across different levels of press organizations"
+                : "Categories inferred from affiliation text using rule-based methods. Minimum 20 cases required."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -197,39 +205,42 @@ export function AccountabilityAnalysis({ data }: AccountabilityAnalysisProps) {
       </div>
 
       {/* Decision by Accused Category */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base text-foreground">
-            Decisions by Accused Category
-          </CardTitle>
-          <CardDescription className="text-muted-foreground text-xs">
-            Outcomes grouped by broad accused category (rule-based inference)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart
-              data={decisionByCategory.slice(0, 12)}
-              layout="vertical"
-              margin={{ left: 60 }}
-            >
-              <XAxis type="number" tick={{ fill: "#64748b", fontSize: 11 }} />
-              <YAxis
-                dataKey="category"
-                type="category"
-                interval={0}
-                tick={{ fill: "#64748b", fontSize: 11 }}
-                width={140}
-              />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Upheld" stackId="a" fill="#16a34a" />
-              <Bar dataKey="Closed" stackId="a" fill="#dc2626" />
-              <Bar dataKey="Other" stackId="a" fill="#64748b" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      {/* Decision by Accused Category - Hidden for against_press */}
+      {selectedDirection !== "against_press" && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-foreground">
+              Decisions by Accused Category
+            </CardTitle>
+            <CardDescription className="text-muted-foreground text-xs">
+              Outcomes grouped by broad accused category (rule-based inference)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart
+                data={decisionByCategory.slice(0, 12)}
+                layout="vertical"
+                margin={{ left: 60 }}
+              >
+                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 11 }} />
+                <YAxis
+                  dataKey="category"
+                  type="category"
+                  interval={0}
+                  tick={{ fill: "#64748b", fontSize: 11 }}
+                  width={140}
+                />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="Upheld" stackId="a" fill="#16a34a" />
+                <Bar dataKey="Closed" stackId="a" fill="#dc2626" />
+                <Bar dataKey="Other" stackId="a" fill="#64748b" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
 
 
       {/* Decision by Complaint Type */}

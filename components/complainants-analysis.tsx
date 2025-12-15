@@ -31,6 +31,7 @@ export function ComplainantsAnalysis({ data, selectedDirection }: ComplainantsAn
   // Dynamic subtitles based on direction
   let govSubtitle = "Government vs non-government involvement across complaints"
   let occSubtitle = "Occupational profile of complainants across all cases"
+  let occTitle = "Top Complainant Occupations"
 
   switch (selectedDirection) {
     case "against_press":
@@ -40,21 +41,29 @@ export function ComplainantsAnalysis({ data, selectedDirection }: ComplainantsAn
 
     case "by_press":
       govSubtitle = "Who is accused in complaints filed by the press?"
-      occSubtitle = "Who within the press files complaints?"
+      occSubtitle = "Levels of press organizations filing complaints"
+      occTitle = "Top Complainant Levels"
       break
   }
 
   // Top complainants by occupation
+  // Top complainants by occupation or level
   const complainantOccupations = useMemo(() => {
     const counts = new Map<string, number>()
     data.forEach((d) => {
-      const occ = d.complainantOccupation || "Unknown"
-      counts.set(occ, (counts.get(occ) || 0) + 1)
+      let key = d.complainantOccupation || "Unknown"
+
+      // Use level for by_press direction
+      if (selectedDirection === "by_press") {
+        key = d.level || "Unknown"
+      }
+
+      counts.set(key, (counts.get(key) || 0) + 1)
     })
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([occupation, count]) => ({ occupation, count }))
-  }, [data])
+  }, [data, selectedDirection])
 
   // Government vs Non-Government breakdown (using Category)
   const govVsNonGov = useMemo(() => {
@@ -175,7 +184,7 @@ export function ComplainantsAnalysis({ data, selectedDirection }: ComplainantsAn
         {/* {selectedDirection !== "by_press" && ( */}
         <Card className="bg-card border-border lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base text-foreground">Top Complainant Occupations</CardTitle>
+            <CardTitle className="text-base text-foreground">{occTitle}</CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
               {occSubtitle}
             </CardDescription>
@@ -255,6 +264,6 @@ export function ComplainantsAnalysis({ data, selectedDirection }: ComplainantsAn
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div >
   )
 }

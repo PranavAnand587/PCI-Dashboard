@@ -44,6 +44,7 @@ function transformComplaint(complaint: Complaint, table: "against" | "by"): PCIC
         complainantOccupation: complaint.Complainant_Occupation || "Unknown",
         accusedCategory: complaint.Accused_Category || "Unknown",
         accusedOccupation: complaint.Accused_Occupation || "Unknown",
+        level: complaint.level || "Unknown",
     }
 }
 

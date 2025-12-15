@@ -27,6 +27,7 @@ export interface Complaint {
   Complainant_Occupation?: string
   Accused_Category?: string
   Accused_Occupation?: string
+  level?: string
 }
 
 export interface ComplaintStats {
