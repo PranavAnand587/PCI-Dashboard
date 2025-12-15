@@ -52,12 +52,15 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
   const decisionByCategory = useMemo(() => {
     const matrix: Record<string, Record<string, number>> = {}
     data.forEach((d) => {
-      let category = d.accusedCategory || "Unknown"
+      const normalize = (v?: string) =>
+        !v || v.toLowerCase() === "unknown" ? "Unclassified" : v
 
-      // Use level for against_press direction
+      let category = normalize(d.accusedCategory)
+
       if (selectedDirection === "against_press") {
-        category = d.level || "Unknown"
+        category = normalize(d.level)
       }
+
 
       if (!matrix[category]) matrix[category] = {}
       matrix[category][d.decisionParent] = (matrix[category][d.decisionParent] || 0) + 1
@@ -171,7 +174,7 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
             </CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
               {selectedDirection === "against_press"
-                ? "Upheld rates across different levels of press organizations"
+                ? "Upheld rates across press levels. Some outlets could not be classified due to insufficient metadata"
                 : "Categories inferred from affiliation text using rule-based methods. Minimum 20 cases required."}
             </CardDescription>
           </CardHeader>
