@@ -366,9 +366,9 @@ export default function Dashboard() {
               </TabsContent>
 
               {/* Network Analysis */}
-              <TabsContent value="network" className="mt-6">
+              {/* <TabsContent value="network" className="mt-6">
                 <NetworkGraph data={filteredData} />
-              </TabsContent>
+              </TabsContent> */}
             </Tabs>
           </TabsContent>
 
