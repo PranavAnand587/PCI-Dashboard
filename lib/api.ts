@@ -16,6 +16,7 @@ export interface Complaint {
   c_name_resolved: string
   a_name_resolved: string
   c_aff_resolved: string
+  c_aff_clean: string
   a_aff_resolved: string
   Press: string
 

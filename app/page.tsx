@@ -6,7 +6,9 @@ import { getFilters, type FiltersResponse } from "@/lib/api"
 import type { PCIComplaint } from "@/lib/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Network, Target, Users, Scale, TrendingUp, Filter, MapIcon, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DisclaimerModal } from "@/components/disclaimer-modal"
+import { Target, Users, Scale, TrendingUp, Filter, MapIcon, Loader2, RefreshCw, AlertTriangle, Info } from "lucide-react"
 
 // Components
 import { FilterPanel } from "@/components/filter-panel"
@@ -26,6 +28,7 @@ export default function Dashboard() {
   const [filters, setFilters] = useState<FiltersResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showDisclaimer, setShowDisclaimer] = useState(true)
 
   // Load data and filters from API on mount
   useEffect(() => {
@@ -181,11 +184,40 @@ export default function Dashboard() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground">Loading PCI complaints data...</p>
-          <p className="text-sm text-muted-foreground">Fetching Data from Backend</p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        {/* Abstract Background Decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-secondary/30 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="w-full max-w-md space-y-8 text-center relative z-10">
+          <div className="relative flex justify-center mb-8">
+            <div className="absolute inset-0 animate-ping rounded-full bg-primary/10 duration-2000"></div>
+            <div className="relative bg-card rounded-full p-6 ring-1 ring-border shadow-xl">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-2xl font-bold tracking-tight text-foreground">Initializing Analytics Engine</h3>
+            <div className="flex flex-col items-center gap-1.5 text-sm text-muted-foreground">
+              <span className="animate-pulse duration-1000">Loading Historical PCI Records (1990-2023)...</span>
+              <span className="text-xs opacity-70">Verifying Data Integrity & Relations</span>
+            </div>
+          </div>
+
+          {/* Progress Bar Simulation */}
+          <div className="w-full bg-secondary/50 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-primary/80 h-full w-1/2 animate-[translateX_1.5s_ease-in-out_infinite] rounded-full"></div>
+          </div>
+
+          <div className="pt-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary/30 rounded-full border border-border/50 text-xs text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+              Beta Version 1.0
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -194,39 +226,53 @@ export default function Dashboard() {
   // Error state
   if (error) {
     return (
+
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="max-w-md text-center space-y-4">
-          <div className="text-6xl">⚠️</div>
-          <h2 className="text-2xl font-semibold text-foreground">Failed to Load Data</h2>
-          <p className="text-muted-foreground">{error}</p>
-          <div className="bg-secondary/50 p-4 rounded-lg text-left text-sm">
-            <p className="font-medium mb-2">Troubleshooting:</p>
-            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>Make sure the FastAPI backend is running</li>
-              <li>
-                Check that it's accessible at{" "}
-                <code className="bg-background px-1 py-0.5 rounded">http://localhost:8000</code>
-              </li>
-              <li>
-                Verify the database file exists at{" "}
-                <code className="bg-background px-1 py-0.5 rounded">complaints.db</code>
-              </li>
-              <li>Check browser console for detailed errors</li>
-            </ul>
+        <div className="max-w-lg w-full bg-card border border-destructive/20 shadow-2xl rounded-xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+          <div className="bg-destructive/5 p-8 flex flex-col items-center text-center border-b border-destructive/10">
+            <div className="h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4 text-destructive ring-1 ring-destructive/20">
+              <AlertTriangle className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Connection Error</h2>
+            <p className="text-sm text-destructive/80 font-medium mt-1">Unable to Retrieve Analytics Data</p>
           </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Retry
-          </button>
+
+          <div className="p-6 space-y-5">
+            <p className="text-sm text-muted-foreground text-center leading-relaxed">
+              The dashboard could not establish a secure connection with the backend data services. This might be due to local server unavailability or network interruptions.
+            </p>
+
+            <div className="bg-secondary/30 rounded-lg p-4 border border-border/60">
+              <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Info className="h-3 w-3" /> Technical Diagnostic:
+              </p>
+              <code className="text-xs font-mono text-destructive break-all block">{error}</code>
+            </div>
+
+            <div className="text-xs text-muted-foreground/60 text-center">
+              Please ensure the backend server is running on <span className="font-mono">port 8000</span>
+            </div>
+          </div>
+
+          <div className="p-6 pt-0">
+            <Button
+              onClick={() => window.location.reload()}
+              className="w-full gap-2"
+              size="lg"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry Connection
+            </Button>
+          </div>
         </div>
       </div>
     )
+
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <DisclaimerModal isOpen={showDisclaimer} onClose={() => setShowDisclaimer(false)} />
       {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-[1800px] mx-auto px-6 py-4">
@@ -238,6 +284,16 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowDisclaimer(true)}
+                className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-950/30 transition-all hover:scale-105"
+                title="View Data Disclaimer & Beta Info"
+              >
+                <Info className="h-5 w-5" />
+                <span className="sr-only">Disclaimer</span>
+              </Button>
               {activeFilterCount > 0 && (
                 <Badge variant="secondary" className="border-primary/30 text-primary">
                   <Filter className="h-3 w-3 mr-1" />
@@ -328,10 +384,7 @@ export default function Dashboard() {
                   <span className="hidden sm:inline">Regional</span>
                 </TabsTrigger>
 
-                <TabsTrigger value="network" className="data-[state=active]:bg-card data-[state=active]:shadow-sm gap-2">
-                  <Network className="h-4 w-4" />
-                  <span className="hidden sm:inline">Network</span>
-                </TabsTrigger>
+
               </TabsList>
 
               {/* Q1: Who is being targeted? (Context-aware) */}
@@ -376,7 +429,7 @@ export default function Dashboard() {
             <ResearchFindings filters={filters} />
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </main >
+    </div >
   )
 }
