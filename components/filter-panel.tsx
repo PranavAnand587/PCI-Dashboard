@@ -110,11 +110,30 @@ export function FilterPanel({
   }, [filters, counts.typeCounts])
 
   const affiliations = useMemo(() => {
+    let list: [string, number][] = []
     if (filters?.affiliations) {
-      return filters.affiliations.map(a => [a, counts.affCounts.get(a) || 0] as [string, number]).sort((a, b) => b[1] - a[1])
+      list = filters.affiliations.map(a => [a, counts.affCounts.get(a) || 0] as [string, number]).sort((a, b) => b[1] - a[1])
+    } else {
+      list = Array.from(counts.affCounts.entries()).sort((a, b) => b[1] - a[1])
     }
-    return Array.from(counts.affCounts.entries()).sort((a, b) => b[1] - a[1])
-  }, [filters, counts.affCounts])
+
+    // Filter out government/police affiliations if direction is 'by_press'
+    if (selectedDirection === "by_press") {
+      const suspiciousKeywords = [
+        "police", "govt", "government", "administration", "officer",
+        "superintendent", "inspector", "commissioner", "constable",
+        "station house officer", "sho", "dm", "sdm", "collector",
+        "magistrate", "ministry", "department", "panchayat", "municipality"
+      ]
+
+      return list.filter(([aff]) => {
+        const lowerAff = aff.toLowerCase()
+        return !suspiciousKeywords.some(keyword => lowerAff.includes(keyword))
+      })
+    }
+
+    return list
+  }, [filters, counts.affCounts, selectedDirection])
 
 
   const decisions = useMemo(() => {

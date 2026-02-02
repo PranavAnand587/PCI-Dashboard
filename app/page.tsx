@@ -17,7 +17,7 @@ import { ComplainantsAnalysis } from "@/components/complainants-analysis"
 import { ThreatsAnalysis } from "@/components/threats-analysis"
 import { AccountabilityAnalysis } from "@/components/accountability-analysis"
 import { RegionalAnalysis } from "@/components/regional-analysis"
-import { NetworkGraph } from "@/components/network-graph"
+// import { NetworkGraph } from "@/components/network-graph"
 import { ExportPanel } from "@/components/export-panel"
 import { ResearchFindings } from "@/components/research-findings"
 
