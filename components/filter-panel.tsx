@@ -79,8 +79,14 @@ export function FilterPanel({
       yearCounts.set(d.year, (yearCounts.get(d.year) || 0) + 1)
       stateCounts.set(d.state, (stateCounts.get(d.state) || 0) + 1)
       typeCounts.set(d.complaintType, (typeCounts.get(d.complaintType) || 0) + 1)
-      affCounts.set(d.complainantAffiliation, (affCounts.get(d.complainantAffiliation) || 0) + 1)
-      affCounts.set(d.accusedAffiliation, (affCounts.get(d.accusedAffiliation) || 0) + 1)
+
+      // if (d.complainantAffiliation) {
+      //   affCounts.set(d.complainantAffiliation, (affCounts.get(d.complainantAffiliation) || 0) + 1)
+      // }
+      if (d.accusedAffiliation) {
+        affCounts.set(d.accusedAffiliation, (affCounts.get(d.accusedAffiliation) || 0) + 1)
+      }
+
       decCounts.set(d.decision, (decCounts.get(d.decision) || 0) + 1)
     })
 
@@ -112,9 +118,14 @@ export function FilterPanel({
   const affiliations = useMemo(() => {
     let list: [string, number][] = []
     if (filters?.affiliations) {
-      list = filters.affiliations.map(a => [a, counts.affCounts.get(a) || 0] as [string, number]).sort((a, b) => b[1] - a[1])
+      list = filters.affiliations
+        .filter(a => !!a && a !== "null") // Remove empty or literal "null" strings
+        .map(a => [a, counts.affCounts.get(a) || 0] as [string, number])
+        .sort((a, b) => b[1] - a[1])
     } else {
-      list = Array.from(counts.affCounts.entries()).sort((a, b) => b[1] - a[1])
+      list = Array.from(counts.affCounts.entries())
+        .filter(([aff]) => !!aff && aff !== "null")
+        .sort((a, b) => b[1] - a[1])
     }
 
     // Filter out government/police affiliations if direction is 'by_press'

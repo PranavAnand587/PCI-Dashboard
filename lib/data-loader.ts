@@ -31,7 +31,7 @@ function transformComplaint(complaint: Complaint, table: "against" | "by"): PCIC
         locationsMApped: complaint.Locations_Mapped || complaint.State || "",
         complainantNameResolved: complaint.c_name_resolved || complaint.Complainant || "",
         accusedNameResolved: complaint.a_name_resolved || complaint.Against || "",
-        complainantAffiliation: complaint.c_aff_clean || "Unknown",
+        complainantAffiliation: complaint.c_aff_resolved || "Unknown",
         accusedAffiliation: complaint.a_aff_resolved || "Unknown",
         complaintDirection,
         gender: "unknown" as const, // We don't have this data, default to unknown
