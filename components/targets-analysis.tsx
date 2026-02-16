@@ -90,8 +90,9 @@ function getTargetDisplayName(d: PCIComplaint) {
     return aff
   }
 
-  // 5. Default: Show "Organization — Name"
-  return `${aff} — ${name}`
+  // 5. Default: Show "Organization" only (job role commented out as per request)
+  // return `${aff} — ${name}`
+  return aff
 }
 
 export function TargetsAnalysis({ data, selectedDirection }: TargetsAnalysisProps) {
@@ -133,6 +134,7 @@ export function TargetsAnalysis({ data, selectedDirection }: TargetsAnalysisProp
 
     data.forEach((d) => {
       const label = getTargetDisplayName(d)
+      if (label === ".") return
       counts.set(label, (counts.get(label) || 0) + 1)
     })
     return Array.from(counts.entries())

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import type { PCIComplaint } from "@/lib/types"
 import type { FiltersResponse } from "@/lib/api"
-import { Slider } from "@/components/ui/slider"
 
 import {
   X,
@@ -24,6 +23,7 @@ import {
   ArrowLeftRight,
   ChevronDown,
   Search,
+  Check,
 } from "lucide-react"
 
 interface FilterPanelProps {
@@ -63,16 +63,52 @@ export function FilterPanel({
 }: FilterPanelProps) {
   const [stateSearch, setStateSearch] = useState("")
   const [typeSearch, setTypeSearch] = useState("")
-  const [affiliationSearch, setAffiliationSearch] = useState("")
+  const [complainantAffiliationSearch, setComplainantAffiliationSearch] = useState("")
+  const [accusedAffiliationSearch, setAccusedAffiliationSearch] = useState("")
   const [decisionSearch, setDecisionSearch] = useState("")
   const [isExpanded, setIsExpanded] = useState(true)
+
+  // Local state for deferred application
+  const [localYears, setLocalYears] = useState<number[]>(selectedYears)
+  const [localStates, setLocalStates] = useState<string[]>(selectedStates)
+  const [localTypes, setLocalTypes] = useState<string[]>(selectedTypes)
+  const [localDirection, setLocalDirection] = useState<"all" | "by_press" | "against_press">(selectedDirection)
+  const [localAffiliations, setLocalAffiliations] = useState<string[]>(selectedAffiliations)
+  const [localDecisions, setLocalDecisions] = useState<string[]>(selectedDecisions)
+
+  // Sync local state when props change
+  useEffect(() => {
+    setLocalYears(selectedYears)
+  }, [selectedYears])
+
+  useEffect(() => {
+    setLocalStates(selectedStates)
+  }, [selectedStates])
+
+  useEffect(() => {
+    setLocalTypes(selectedTypes)
+  }, [selectedTypes])
+
+  useEffect(() => {
+    setLocalDirection(selectedDirection)
+  }, [selectedDirection])
+
+  useEffect(() => {
+    setLocalAffiliations(selectedAffiliations)
+  }, [selectedAffiliations])
+
+  useEffect(() => {
+    setLocalDecisions(selectedDecisions)
+  }, [selectedDecisions])
+
 
   // Calculate counts for items that exist in the data (for display purposes)
   const counts = useMemo(() => {
     const yearCounts = new Map<number, number>()
     const stateCounts = new Map<string, number>()
     const typeCounts = new Map<string, number>()
-    const affCounts = new Map<string, number>()
+    const compAffCounts = new Map<string, number>()
+    const accAffCounts = new Map<string, number>()
     const decCounts = new Map<string, number>()
 
     data.forEach((d) => {
@@ -80,17 +116,17 @@ export function FilterPanel({
       stateCounts.set(d.state, (stateCounts.get(d.state) || 0) + 1)
       typeCounts.set(d.complaintType, (typeCounts.get(d.complaintType) || 0) + 1)
 
-      // if (d.complainantAffiliation) {
-      //   affCounts.set(d.complainantAffiliation, (affCounts.get(d.complainantAffiliation) || 0) + 1)
-      // }
+      if (d.complainantAffiliation) {
+        compAffCounts.set(d.complainantAffiliation, (compAffCounts.get(d.complainantAffiliation) || 0) + 1)
+      }
       if (d.accusedAffiliation) {
-        affCounts.set(d.accusedAffiliation, (affCounts.get(d.accusedAffiliation) || 0) + 1)
+        accAffCounts.set(d.accusedAffiliation, (accAffCounts.get(d.accusedAffiliation) || 0) + 1)
       }
 
       decCounts.set(d.decision, (decCounts.get(d.decision) || 0) + 1)
     })
 
-    return { yearCounts, stateCounts, typeCounts, affCounts, decCounts }
+    return { yearCounts, stateCounts, typeCounts, compAffCounts, accAffCounts, decCounts }
   }, [data])
 
   // Use backend filters as source of truth, fallback to derived from data if not loaded
@@ -115,36 +151,24 @@ export function FilterPanel({
     return Array.from(counts.typeCounts.entries()).sort((a, b) => b[1] - a[1])
   }, [filters, counts.typeCounts])
 
-  const affiliations = useMemo(() => {
-    let list: [string, number][] = []
-    if (filters?.affiliations) {
-      list = filters.affiliations
-        .filter(a => !!a && a !== "null") // Remove empty or literal "null" strings
-        .map(a => [a, counts.affCounts.get(a) || 0] as [string, number])
-        .sort((a, b) => b[1] - a[1])
-    } else {
-      list = Array.from(counts.affCounts.entries())
-        .filter(([aff]) => !!aff && aff !== "null")
-        .sort((a, b) => b[1] - a[1])
-    }
+  // Helper to filter bad affiliations
+  const cleanAffiliation = (aff: string) => {
+    const lower = aff.toLowerCase()
+    return !!aff && aff !== "null" && lower !== "unknown" && lower !== "." && aff.trim().length > 1
+  }
 
-    // Filter out government/police affiliations if direction is 'by_press'
-    if (selectedDirection === "by_press") {
-      const suspiciousKeywords = [
-        "police", "govt", "government", "administration", "officer",
-        "superintendent", "inspector", "commissioner", "constable",
-        "station house officer", "sho", "dm", "sdm", "collector",
-        "magistrate", "ministry", "department", "panchayat", "municipality"
-      ]
+  // Split Affiliations Logic
+  const complainantAffiliations = useMemo(() => {
+    return Array.from(counts.compAffCounts.entries())
+      .filter(([aff]) => cleanAffiliation(aff))
+      .sort((a, b) => b[1] - a[1])
+  }, [counts.compAffCounts])
 
-      return list.filter(([aff]) => {
-        const lowerAff = aff.toLowerCase()
-        return !suspiciousKeywords.some(keyword => lowerAff.includes(keyword))
-      })
-    }
-
-    return list
-  }, [filters, counts.affCounts, selectedDirection])
+  const accusedAffiliations = useMemo(() => {
+    return Array.from(counts.accAffCounts.entries())
+      .filter(([aff]) => cleanAffiliation(aff))
+      .sort((a, b) => b[1] - a[1])
+  }, [counts.accAffCounts])
 
 
   const decisions = useMemo(() => {
@@ -156,44 +180,79 @@ export function FilterPanel({
 
   const filteredStates = states.filter(([s]) => s.toLowerCase().includes(stateSearch.toLowerCase()))
   const filteredTypes = types.filter(([t]) => t.toLowerCase().includes(typeSearch.toLowerCase()))
-  const filteredAffiliations = affiliations.filter(([a]) => a.toLowerCase().includes(affiliationSearch.toLowerCase()))
+  const filteredComplainantAffiliations = complainantAffiliations.filter(([a]) => a.toLowerCase().includes(complainantAffiliationSearch.toLowerCase()))
+  const filteredAccusedAffiliations = accusedAffiliations.filter(([a]) => a.toLowerCase().includes(accusedAffiliationSearch.toLowerCase()))
   const filteredDecisions = decisions.filter(([d]) => d.toLowerCase().includes(decisionSearch.toLowerCase()))
 
+  // Toggles for Local State
   const toggleYear = (year: number) => {
-    onYearsChange(selectedYears.includes(year) ? selectedYears.filter((y) => y !== year) : [...selectedYears, year])
+    setLocalYears(prev => prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year])
   }
 
   const toggleState = (state: string) => {
-    onStatesChange(
-      selectedStates.includes(state) ? selectedStates.filter((s) => s !== state) : [...selectedStates, state],
-    )
+    setLocalStates(prev => prev.includes(state) ? prev.filter((s) => s !== state) : [...prev, state])
   }
 
   const toggleType = (type: string) => {
-    onTypesChange(selectedTypes.includes(type) ? selectedTypes.filter((t) => t !== type) : [...selectedTypes, type])
+    setLocalTypes(prev => prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type])
   }
 
   const toggleAffiliation = (aff: string) => {
-    onAffiliationsChange(
-      selectedAffiliations.includes(aff)
-        ? selectedAffiliations.filter((a) => a !== aff)
-        : [...selectedAffiliations, aff],
-    )
+    setLocalAffiliations(prev => prev.includes(aff) ? prev.filter((a) => a !== aff) : [...prev, aff])
   }
 
   const toggleDecision = (dec: string) => {
-    onDecisionsChange(
-      selectedDecisions.includes(dec) ? selectedDecisions.filter((d) => d !== dec) : [...selectedDecisions, dec],
-    )
+    setLocalDecisions(prev => prev.includes(dec) ? prev.filter((d) => d !== dec) : [...prev, dec])
+  }
+
+  const handleYearRangeChange = (min: number | "", max: number | "") => {
+    const allYears = years.map(([y]) => y)
+    if (allYears.length === 0) return
+
+    const minYear = Math.min(...allYears)
+    const maxYear = Math.max(...allYears)
+
+    // Treat empty as bounds
+    const effectiveMin = min === "" ? minYear : min
+    const effectiveMax = max === "" ? maxYear : max
+
+    // Create range
+    const newRange = allYears.filter((y) => y >= effectiveMin && y <= effectiveMax)
+    setLocalYears(newRange)
+  }
+
+  // Apply Handler
+  const handleApply = () => {
+    onYearsChange(localYears)
+    onStatesChange(localStates)
+    onTypesChange(localTypes)
+    onDirectionChange(localDirection)
+    onAffiliationsChange(localAffiliations)
+    onDecisionsChange(localDecisions)
   }
 
   const totalActiveFilters =
-    selectedYears.length +
-    selectedStates.length +
-    selectedTypes.length +
-    (selectedDirection !== "all" ? 1 : 0) +
-    selectedAffiliations.length +
-    selectedDecisions.length
+    localYears.length +
+    localStates.length +
+    localTypes.length +
+    (localDirection !== "all" ? 1 : 0) +
+    localAffiliations.length +
+    localDecisions.length
+
+  // FIX: Clone arrays before sorting to avoid mutation bugs causing missed updates
+  const hasChanges =
+    JSON.stringify([...localYears].sort()) !== JSON.stringify([...selectedYears].sort()) ||
+    JSON.stringify([...localStates].sort()) !== JSON.stringify([...selectedStates].sort()) ||
+    JSON.stringify([...localTypes].sort()) !== JSON.stringify([...selectedTypes].sort()) ||
+    localDirection !== selectedDirection ||
+    JSON.stringify([...localAffiliations].sort()) !== JSON.stringify([...selectedAffiliations].sort()) ||
+    JSON.stringify([...localDecisions].sort()) !== JSON.stringify([...selectedDecisions].sort())
+
+
+  // Derived min/max for Year Inputs
+  const inputMinYear = localYears.length > 0 ? Math.min(...localYears) : (years.length > 0 ? Math.min(...years.map(y => y[0])) : "")
+  const inputMaxYear = localYears.length > 0 ? Math.max(...localYears) : (years.length > 0 ? Math.max(...years.map(y => y[0])) : "")
+
 
   return (
     <Card className="bg-card border-border">
@@ -211,6 +270,7 @@ export function FilterPanel({
                   </Badge>
                 )}
               </div>
+
               <div className="flex items-center gap-2">
                 {totalActiveFilters > 0 && (
                   <Button
@@ -226,6 +286,18 @@ export function FilterPanel({
                     Clear all
                   </Button>
                 )}
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleApply()
+                  }}
+                  disabled={!hasChanges}
+                  size="sm"
+                  className="h-7 text-xs"
+                >
+                  <Check className="h-3 w-3 mr-1" />
+                  Apply
+                </Button>
                 <ChevronDown
                   className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
                 />
@@ -236,20 +308,23 @@ export function FilterPanel({
           {/* Active Filters Display */}
           {totalActiveFilters > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3 pb-3 border-b border-border">
-              {selectedDirection !== "all" && (
+              {localDirection !== "all" && (
                 <Badge variant="secondary" className="text-xs gap-1">
                   <ArrowLeftRight className="h-3 w-3" />
-                  {selectedDirection === "by_press" ? "By Press" : "Against Press"}
+                  {localDirection === "by_press" ? "By Press" : "Against Press"}
                   <X
                     className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
-                    onClick={() => onDirectionChange("all")}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setLocalDirection("all")
+                    }}
                   />
                 </Badge>
               )}
-              {/* Years badge: show a single chip for the selected range (or single year) */}
-              {selectedYears.length > 0 && (() => {
-                const min = Math.min(...selectedYears)
-                const max = Math.max(...selectedYears)
+              {/* Years badge */}
+              {localYears.length > 0 && (() => {
+                const min = Math.min(...localYears)
+                const max = Math.max(...localYears)
                 const label = min === max ? String(min) : `${min}-${max}`
 
                 return (
@@ -262,14 +337,17 @@ export function FilterPanel({
                     {label}
                     <X
                       className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
-                      onClick={() => onYearsChange([])}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setLocalYears([])
+                      }}
                       aria-label="Clear year range"
                     />
                   </Badge>
                 )
               })()}
 
-              {selectedStates.map((state) => (
+              {localStates.map((state) => (
                 <Badge
                   key={state}
                   variant="secondary"
@@ -279,11 +357,14 @@ export function FilterPanel({
                   {state}
                   <X
                     className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
-                    onClick={() => toggleState(state)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleState(state)
+                    }}
                   />
                 </Badge>
               ))}
-              {selectedTypes.map((type) => (
+              {localTypes.map((type) => (
                 <Badge
                   key={type}
                   variant="secondary"
@@ -291,10 +372,13 @@ export function FilterPanel({
                 >
                   <FileText className="h-3 w-3" />
                   {type}
-                  <X className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive" onClick={() => toggleType(type)} />
+                  <X className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive" onClick={(e) => {
+                    e.stopPropagation()
+                    toggleType(type)
+                  }} />
                 </Badge>
               ))}
-              {selectedAffiliations.map((aff) => (
+              {localAffiliations.map((aff) => (
                 <Badge
                   key={aff}
                   variant="secondary"
@@ -304,17 +388,23 @@ export function FilterPanel({
                   {aff}
                   <X
                     className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
-                    onClick={() => toggleAffiliation(aff)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleAffiliation(aff)
+                    }}
                   />
                 </Badge>
               ))}
-              {selectedDecisions.map((dec) => (
+              {localDecisions.map((dec) => (
                 <Badge key={dec} variant="secondary" className="text-xs gap-1 bg-red-50 text-red-700 border-red-200">
                   <Scale className="h-3 w-3" />
                   {dec}
                   <X
                     className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
-                    onClick={() => toggleDecision(dec)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleDecision(dec)
+                    }}
                   />
                 </Badge>
               ))}
@@ -323,9 +413,9 @@ export function FilterPanel({
 
           <CollapsibleContent>
             {/* Filter Sections */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mt-4">
-              {/* Direction Filter */}
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 mt-4">
+              {/* Direction Filter - Reduced width */}
+              <div className="space-y-2 col-span-1">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <ArrowLeftRight className="h-3.5 w-3.5 text-primary" />
                   Direction
@@ -339,9 +429,9 @@ export function FilterPanel({
                     <Button
                       key={dir.value}
                       size="sm"
-                      variant={selectedDirection === dir.value ? "default" : "outline"}
-                      onClick={() => onDirectionChange(dir.value as any)}
-                      className={`text-xs h-8 justify-start ${selectedDirection === dir.value ? "" : "text-muted-foreground"
+                      variant={localDirection === dir.value ? "default" : "outline"}
+                      onClick={() => setLocalDirection(dir.value as any)}
+                      className={`text-xs h-8 justify-start ${localDirection === dir.value ? "" : "text-muted-foreground"
                         }`}
                     >
                       {dir.label}
@@ -350,43 +440,37 @@ export function FilterPanel({
                 </div>
               </div>
 
-              {/* Years Filter */}
-              <div className="space-y-2">
+              {/* Years Filter (Input Range) - Reduced width */}
+              <div className="space-y-2 col-span-1">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <Calendar className="h-3.5 w-3.5 text-blue-600" />
                   Years
                 </div>
 
                 {(() => {
-                  const allYears = years.map(([y]) => y)
-                  if (allYears.length === 0) return null
-
-                  const minYear = Math.min(...allYears)
-                  const maxYear = Math.max(...allYears)
-
-                  const currentMin = selectedYears.length > 0 ? Math.min(...selectedYears) : minYear
-                  const currentMax = selectedYears.length > 0 ? Math.max(...selectedYears) : maxYear
-
                   return (
-                    <div className="px-2">
-                      <Slider
-                        min={minYear}
-                        max={maxYear}
-                        step={1}
-                        value={[currentMin, currentMax]}
-                        onValueChange={([minVal, maxVal]) => {
-                          const newRange = allYears.filter((y) => y >= minVal && y <= maxVal)
-                          if (newRange.length === allYears.length) {
-                            onYearsChange([])
-                          } else {
-                            onYearsChange(newRange)
-                          }
+                    <div className="px-1 flex flex-col gap-2">
+                      <Input
+                        type="number"
+                        placeholder="From"
+                        className="h-8 text-xs"
+                        value={inputMinYear}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value) : ""
+                          handleYearRangeChange(val, inputMaxYear)
                         }}
                       />
-                      <div className="flex justify-between text-xs text-muted-foreground pt-1">
-                        <span>{currentMin}</span>
-                        <span>{currentMax}</span>
-                      </div>
+                      <div className="text-center text-muted-foreground text-[10px]">to</div>
+                      <Input
+                        type="number"
+                        placeholder="To"
+                        className="h-8 text-xs"
+                        value={inputMaxYear}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseInt(e.target.value) : ""
+                          handleYearRangeChange(inputMinYear, val)
+                        }}
+                      />
                     </div>
                   )
                 })()}
@@ -394,7 +478,7 @@ export function FilterPanel({
 
 
               {/* States Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-1">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <MapPin className="h-3.5 w-3.5 text-emerald-600" />
                   States
@@ -402,7 +486,7 @@ export function FilterPanel({
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                   <Input
-                    placeholder="Search states..."
+                    placeholder="Search..."
                     value={stateSearch}
                     onChange={(e) => setStateSearch(e.target.value)}
                     className="h-8 text-xs pl-7"
@@ -416,7 +500,7 @@ export function FilterPanel({
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                       >
                         <Checkbox
-                          checked={selectedStates.includes(state)}
+                          checked={localStates.includes(state)}
                           onCheckedChange={() => toggleState(state)}
                           className="h-3.5 w-3.5"
                         />
@@ -429,7 +513,7 @@ export function FilterPanel({
               </div>
 
               {/* Types Filter */}
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-1">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <FileText className="h-3.5 w-3.5 text-purple-600" />
                   Complaint Type
@@ -437,7 +521,7 @@ export function FilterPanel({
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                   <Input
-                    placeholder="Search types..."
+                    placeholder="Search..."
                     value={typeSearch}
                     onChange={(e) => setTypeSearch(e.target.value)}
                     className="h-8 text-xs pl-7"
@@ -451,7 +535,7 @@ export function FilterPanel({
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                       >
                         <Checkbox
-                          checked={selectedTypes.includes(type)}
+                          checked={localTypes.includes(type)}
                           onCheckedChange={() => toggleType(type)}
                           className="h-3.5 w-3.5"
                         />
@@ -463,35 +547,68 @@ export function FilterPanel({
                 </ScrollArea>
               </div>
 
-              {/* Affiliations Filter */}
-              <div className="space-y-2">
+              {/* Complainant Affiliations Filter */}
+              <div className="space-y-2 col-span-1">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <Users className="h-3.5 w-3.5 text-amber-600" />
-                  Affiliations
+                  Complainant Aff.
                 </div>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                   <Input
                     placeholder="Search..."
-                    value={affiliationSearch}
-                    onChange={(e) => setAffiliationSearch(e.target.value)}
+                    value={complainantAffiliationSearch}
+                    onChange={(e) => setComplainantAffiliationSearch(e.target.value)}
                     className="h-8 text-xs pl-7"
                   />
                 </div>
                 <ScrollArea className="h-24">
                   <div className="space-y-1">
-                    {filteredAffiliations.map(([aff, count]) => (
+                    {filteredComplainantAffiliations.map(([aff, count]) => (
                       <label
                         key={aff}
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                       >
                         <Checkbox
-                          checked={selectedAffiliations.includes(aff)}
+                          checked={localAffiliations.includes(aff)}
                           onCheckedChange={() => toggleAffiliation(aff)}
                           className="h-3.5 w-3.5"
                         />
                         <span className="flex-1 truncate">{aff}</span>
-                        <span className="text-muted-foreground/60">{count}</span>
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Accused Affiliations Filter */}
+              <div className="space-y-2 col-span-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                  <Users className="h-3.5 w-3.5 text-red-600" />
+                  Accused Aff.
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    value={accusedAffiliationSearch}
+                    onChange={(e) => setAccusedAffiliationSearch(e.target.value)}
+                    className="h-8 text-xs pl-7"
+                  />
+                </div>
+                <ScrollArea className="h-24">
+                  <div className="space-y-1">
+                    {filteredAccusedAffiliations.map(([aff, count]) => (
+                      <label
+                        key={aff}
+                        className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                      >
+                        <Checkbox
+                          checked={localAffiliations.includes(aff)}
+                          onCheckedChange={() => toggleAffiliation(aff)}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="flex-1 truncate">{aff}</span>
                       </label>
                     ))}
                   </div>
@@ -500,7 +617,7 @@ export function FilterPanel({
 
 
               {/* Decisions Filter (Hierarchical) */}
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-1">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                   <Scale className="h-3.5 w-3.5 text-red-600" />
                   Decision
@@ -525,7 +642,7 @@ export function FilterPanel({
                           className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                         >
                           <Checkbox
-                            checked={selectedDecisions.includes(dec)}
+                            checked={localDecisions.includes(dec)}
                             onCheckedChange={() => toggleDecision(dec)}
                             className="h-3.5 w-3.5"
                           />
