@@ -61,7 +61,8 @@ export default function Dashboard() {
   const [selectedStates, setSelectedStates] = useState<string[]>([])
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [selectedDirection, setSelectedDirection] = useState<"all" | "by_press" | "against_press">("all")
-  const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([])
+  const [selectedComplainantAffiliations, setSelectedComplainantAffiliations] = useState<string[]>([])
+  const [selectedAccusedAffiliations, setSelectedAccusedAffiliations] = useState<string[]>([])
   const [selectedDecisions, setSelectedDecisions] = useState<string[]>([])
   const [activeView, setActiveView] = useState("targets")
 
@@ -85,12 +86,8 @@ export default function Dashboard() {
       if (selectedStates.length > 0 && !selectedStates.includes(item.state)) return false
       if (selectedTypes.length > 0 && !selectedTypes.includes(item.complaintType)) return false
       if (selectedDirection !== "all" && item.complaintDirection !== selectedDirection) return false
-      if (selectedAffiliations.length > 0) {
-        const hasAffiliation =
-          selectedAffiliations.includes(item.complainantAffiliation) ||
-          selectedAffiliations.includes(item.accusedAffiliation)
-        if (!hasAffiliation) return false
-      }
+      if (selectedComplainantAffiliations.length > 0 && !selectedComplainantAffiliations.includes(item.complainantAffiliation)) return false
+      if (selectedAccusedAffiliations.length > 0 && !selectedAccusedAffiliations.includes(item.accusedAffiliation)) return false
       if (selectedDecisions.length > 0 && !selectedDecisions.includes(item.decision)) return false
       return true
     })
@@ -112,7 +109,8 @@ export default function Dashboard() {
     selectedStates,
     selectedTypes,
     selectedDirection,
-    selectedAffiliations,
+    selectedComplainantAffiliations,
+    selectedAccusedAffiliations,
     selectedDecisions,
   ])
 
@@ -158,7 +156,8 @@ export default function Dashboard() {
     selectedStates.length,
     selectedTypes.length,
     selectedDirection !== "all" ? 1 : 0,
-    selectedAffiliations.length,
+    selectedComplainantAffiliations.length,
+    selectedAccusedAffiliations.length,
     selectedDecisions.length,
   ].reduce((a, b) => a + b, 0)
 
@@ -167,7 +166,8 @@ export default function Dashboard() {
     setSelectedStates([])
     setSelectedTypes([])
     setSelectedDirection("all")
-    setSelectedAffiliations([])
+    setSelectedComplainantAffiliations([])
+    setSelectedAccusedAffiliations([])
     setSelectedDecisions([])
   }
 
@@ -319,19 +319,21 @@ export default function Dashboard() {
 
             {/* Filter Panel */}
             <FilterPanel
-              data={directionFilteredData}
+              data={filteredData}
               filters={filters}
               selectedYears={selectedYears}
               selectedStates={selectedStates}
               selectedTypes={selectedTypes}
               selectedDirection={selectedDirection}
-              selectedAffiliations={selectedAffiliations}
+              selectedComplainantAffiliations={selectedComplainantAffiliations}
+              selectedAccusedAffiliations={selectedAccusedAffiliations}
               selectedDecisions={selectedDecisions}
               onYearsChange={setSelectedYears}
               onStatesChange={setSelectedStates}
               onTypesChange={setSelectedTypes}
               onDirectionChange={setSelectedDirection}
-              onAffiliationsChange={setSelectedAffiliations}
+              onComplainantAffiliationsChange={setSelectedComplainantAffiliations}
+              onAccusedAffiliationsChange={setSelectedAccusedAffiliations}
               onDecisionsChange={setSelectedDecisions}
               onClearAll={clearAllFilters}
             />

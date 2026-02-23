@@ -33,13 +33,15 @@ interface FilterPanelProps {
   selectedStates: string[]
   selectedTypes: string[]
   selectedDirection: "all" | "by_press" | "against_press"
-  selectedAffiliations: string[]
+  selectedComplainantAffiliations: string[]
+  selectedAccusedAffiliations: string[]
   selectedDecisions: string[]
   onYearsChange: (years: number[]) => void
   onStatesChange: (states: string[]) => void
   onTypesChange: (types: string[]) => void
   onDirectionChange: (direction: "all" | "by_press" | "against_press") => void
-  onAffiliationsChange: (affiliations: string[]) => void
+  onComplainantAffiliationsChange: (affiliations: string[]) => void
+  onAccusedAffiliationsChange: (affiliations: string[]) => void
   onDecisionsChange: (decisions: string[]) => void
   onClearAll: () => void
 }
@@ -51,55 +53,25 @@ export function FilterPanel({
   selectedStates,
   selectedTypes,
   selectedDirection,
-  selectedAffiliations,
+  selectedComplainantAffiliations,
+  selectedAccusedAffiliations,
   selectedDecisions,
   onYearsChange,
   onStatesChange,
   onTypesChange,
   onDirectionChange,
-  onAffiliationsChange,
+  onComplainantAffiliationsChange,
+  onAccusedAffiliationsChange,
   onDecisionsChange,
   onClearAll,
 }: FilterPanelProps) {
+  // Local search state
   const [stateSearch, setStateSearch] = useState("")
   const [typeSearch, setTypeSearch] = useState("")
   const [complainantAffiliationSearch, setComplainantAffiliationSearch] = useState("")
   const [accusedAffiliationSearch, setAccusedAffiliationSearch] = useState("")
   const [decisionSearch, setDecisionSearch] = useState("")
   const [isExpanded, setIsExpanded] = useState(true)
-
-  // Local state for deferred application
-  const [localYears, setLocalYears] = useState<number[]>(selectedYears)
-  const [localStates, setLocalStates] = useState<string[]>(selectedStates)
-  const [localTypes, setLocalTypes] = useState<string[]>(selectedTypes)
-  const [localDirection, setLocalDirection] = useState<"all" | "by_press" | "against_press">(selectedDirection)
-  const [localAffiliations, setLocalAffiliations] = useState<string[]>(selectedAffiliations)
-  const [localDecisions, setLocalDecisions] = useState<string[]>(selectedDecisions)
-
-  // Sync local state when props change
-  useEffect(() => {
-    setLocalYears(selectedYears)
-  }, [selectedYears])
-
-  useEffect(() => {
-    setLocalStates(selectedStates)
-  }, [selectedStates])
-
-  useEffect(() => {
-    setLocalTypes(selectedTypes)
-  }, [selectedTypes])
-
-  useEffect(() => {
-    setLocalDirection(selectedDirection)
-  }, [selectedDirection])
-
-  useEffect(() => {
-    setLocalAffiliations(selectedAffiliations)
-  }, [selectedAffiliations])
-
-  useEffect(() => {
-    setLocalDecisions(selectedDecisions)
-  }, [selectedDecisions])
 
 
   // Calculate counts for items that exist in the data (for display purposes)
@@ -184,25 +156,29 @@ export function FilterPanel({
   const filteredAccusedAffiliations = accusedAffiliations.filter(([a]) => a.toLowerCase().includes(accusedAffiliationSearch.toLowerCase()))
   const filteredDecisions = decisions.filter(([d]) => d.toLowerCase().includes(decisionSearch.toLowerCase()))
 
-  // Toggles for Local State
+  // Toggles for Prop Callbacks
   const toggleYear = (year: number) => {
-    setLocalYears(prev => prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year])
+    onYearsChange(selectedYears.includes(year) ? selectedYears.filter((y) => y !== year) : [...selectedYears, year])
   }
 
   const toggleState = (state: string) => {
-    setLocalStates(prev => prev.includes(state) ? prev.filter((s) => s !== state) : [...prev, state])
+    onStatesChange(selectedStates.includes(state) ? selectedStates.filter((s) => s !== state) : [...selectedStates, state])
   }
 
   const toggleType = (type: string) => {
-    setLocalTypes(prev => prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type])
+    onTypesChange(selectedTypes.includes(type) ? selectedTypes.filter((t) => t !== type) : [...selectedTypes, type])
   }
 
-  const toggleAffiliation = (aff: string) => {
-    setLocalAffiliations(prev => prev.includes(aff) ? prev.filter((a) => a !== aff) : [...prev, aff])
+  const toggleComplainantAffiliation = (aff: string) => {
+    onComplainantAffiliationsChange(selectedComplainantAffiliations.includes(aff) ? selectedComplainantAffiliations.filter((a) => a !== aff) : [...selectedComplainantAffiliations, aff])
+  }
+
+  const toggleAccusedAffiliation = (aff: string) => {
+    onAccusedAffiliationsChange(selectedAccusedAffiliations.includes(aff) ? selectedAccusedAffiliations.filter((a) => a !== aff) : [...selectedAccusedAffiliations, aff])
   }
 
   const toggleDecision = (dec: string) => {
-    setLocalDecisions(prev => prev.includes(dec) ? prev.filter((d) => d !== dec) : [...prev, dec])
+    onDecisionsChange(selectedDecisions.includes(dec) ? selectedDecisions.filter((d) => d !== dec) : [...selectedDecisions, dec])
   }
 
   const handleYearRangeChange = (min: number | "", max: number | "") => {
@@ -218,40 +194,21 @@ export function FilterPanel({
 
     // Create range
     const newRange = allYears.filter((y) => y >= effectiveMin && y <= effectiveMax)
-    setLocalYears(newRange)
-  }
-
-  // Apply Handler
-  const handleApply = () => {
-    onYearsChange(localYears)
-    onStatesChange(localStates)
-    onTypesChange(localTypes)
-    onDirectionChange(localDirection)
-    onAffiliationsChange(localAffiliations)
-    onDecisionsChange(localDecisions)
+    onYearsChange(newRange)
   }
 
   const totalActiveFilters =
-    localYears.length +
-    localStates.length +
-    localTypes.length +
-    (localDirection !== "all" ? 1 : 0) +
-    localAffiliations.length +
-    localDecisions.length
-
-  // FIX: Clone arrays before sorting to avoid mutation bugs causing missed updates
-  const hasChanges =
-    JSON.stringify([...localYears].sort()) !== JSON.stringify([...selectedYears].sort()) ||
-    JSON.stringify([...localStates].sort()) !== JSON.stringify([...selectedStates].sort()) ||
-    JSON.stringify([...localTypes].sort()) !== JSON.stringify([...selectedTypes].sort()) ||
-    localDirection !== selectedDirection ||
-    JSON.stringify([...localAffiliations].sort()) !== JSON.stringify([...selectedAffiliations].sort()) ||
-    JSON.stringify([...localDecisions].sort()) !== JSON.stringify([...selectedDecisions].sort())
-
+    selectedYears.length +
+    selectedStates.length +
+    selectedTypes.length +
+    (selectedDirection !== "all" ? 1 : 0) +
+    selectedComplainantAffiliations.length +
+    selectedAccusedAffiliations.length +
+    selectedDecisions.length
 
   // Derived min/max for Year Inputs
-  const inputMinYear = localYears.length > 0 ? Math.min(...localYears) : (years.length > 0 ? Math.min(...years.map(y => y[0])) : "")
-  const inputMaxYear = localYears.length > 0 ? Math.max(...localYears) : (years.length > 0 ? Math.max(...years.map(y => y[0])) : "")
+  const inputMinYear = selectedYears.length > 0 ? Math.min(...selectedYears) : (years.length > 0 ? Math.min(...years.map(y => y[0])) : "")
+  const inputMaxYear = selectedYears.length > 0 ? Math.max(...selectedYears) : (years.length > 0 ? Math.max(...years.map(y => y[0])) : "")
 
 
   return (
@@ -286,18 +243,6 @@ export function FilterPanel({
                     Clear all
                   </Button>
                 )}
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleApply()
-                  }}
-                  disabled={!hasChanges}
-                  size="sm"
-                  className="h-7 text-xs"
-                >
-                  <Check className="h-3 w-3 mr-1" />
-                  Apply
-                </Button>
                 <ChevronDown
                   className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
                 />
@@ -308,23 +253,23 @@ export function FilterPanel({
           {/* Active Filters Display */}
           {totalActiveFilters > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3 pb-3 border-b border-border">
-              {localDirection !== "all" && (
+              {selectedDirection !== "all" && (
                 <Badge variant="secondary" className="text-xs gap-1">
                   <ArrowLeftRight className="h-3 w-3" />
-                  {localDirection === "by_press" ? "By Press" : "Against Press"}
+                  {selectedDirection === "by_press" ? "By Press" : "Against Press"}
                   <X
                     className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation()
-                      setLocalDirection("all")
+                      onDirectionChange("all")
                     }}
                   />
                 </Badge>
               )}
               {/* Years badge */}
-              {localYears.length > 0 && (() => {
-                const min = Math.min(...localYears)
-                const max = Math.max(...localYears)
+              {selectedYears.length > 0 && (() => {
+                const min = Math.min(...selectedYears)
+                const max = Math.max(...selectedYears)
                 const label = min === max ? String(min) : `${min}-${max}`
 
                 return (
@@ -339,7 +284,7 @@ export function FilterPanel({
                       className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setLocalYears([])
+                        onYearsChange([])
                       }}
                       aria-label="Clear year range"
                     />
@@ -347,7 +292,7 @@ export function FilterPanel({
                 )
               })()}
 
-              {localStates.map((state) => (
+              {selectedStates.map((state) => (
                 <Badge
                   key={state}
                   variant="secondary"
@@ -364,7 +309,7 @@ export function FilterPanel({
                   />
                 </Badge>
               ))}
-              {localTypes.map((type) => (
+              {selectedTypes.map((type) => (
                 <Badge
                   key={type}
                   variant="secondary"
@@ -378,24 +323,41 @@ export function FilterPanel({
                   }} />
                 </Badge>
               ))}
-              {localAffiliations.map((aff) => (
+              {selectedComplainantAffiliations.map((aff) => (
                 <Badge
-                  key={aff}
+                  key={`comp-${aff}`}
                   variant="secondary"
                   className="text-xs gap-1 bg-amber-50 text-amber-700 border-amber-200"
                 >
                   <Users className="h-3 w-3" />
-                  {aff}
+                  Comp: {aff}
                   <X
                     className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation()
-                      toggleAffiliation(aff)
+                      toggleComplainantAffiliation(aff)
                     }}
                   />
                 </Badge>
               ))}
-              {localDecisions.map((dec) => (
+              {selectedAccusedAffiliations.map((aff) => (
+                <Badge
+                  key={`acc-${aff}`}
+                  variant="secondary"
+                  className="text-xs gap-1 bg-red-50 text-red-700 border-red-200"
+                >
+                  <Users className="h-3 w-3" />
+                  Acc: {aff}
+                  <X
+                    className="h-3 w-3 ml-1 cursor-pointer hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleAccusedAffiliation(aff)
+                    }}
+                  />
+                </Badge>
+              ))}
+              {selectedDecisions.map((dec) => (
                 <Badge key={dec} variant="secondary" className="text-xs gap-1 bg-red-50 text-red-700 border-red-200">
                   <Scale className="h-3 w-3" />
                   {dec}
@@ -429,9 +391,9 @@ export function FilterPanel({
                     <Button
                       key={dir.value}
                       size="sm"
-                      variant={localDirection === dir.value ? "default" : "outline"}
-                      onClick={() => setLocalDirection(dir.value as any)}
-                      className={`text-xs h-8 justify-start ${localDirection === dir.value ? "" : "text-muted-foreground"
+                      variant={selectedDirection === dir.value ? "default" : "outline"}
+                      onClick={() => onDirectionChange(dir.value as any)}
+                      className={`text-xs h-8 justify-start ${selectedDirection === dir.value ? "" : "text-muted-foreground"
                         }`}
                     >
                       {dir.label}
@@ -500,7 +462,7 @@ export function FilterPanel({
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                       >
                         <Checkbox
-                          checked={localStates.includes(state)}
+                          checked={selectedStates.includes(state)}
                           onCheckedChange={() => toggleState(state)}
                           className="h-3.5 w-3.5"
                         />
@@ -535,7 +497,7 @@ export function FilterPanel({
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                       >
                         <Checkbox
-                          checked={localTypes.includes(type)}
+                          checked={selectedTypes.includes(type)}
                           onCheckedChange={() => toggleType(type)}
                           className="h-3.5 w-3.5"
                         />
@@ -570,8 +532,8 @@ export function FilterPanel({
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                       >
                         <Checkbox
-                          checked={localAffiliations.includes(aff)}
-                          onCheckedChange={() => toggleAffiliation(aff)}
+                          checked={selectedComplainantAffiliations.includes(aff)}
+                          onCheckedChange={() => toggleComplainantAffiliation(aff)}
                           className="h-3.5 w-3.5"
                         />
                         <span className="flex-1 truncate">{aff}</span>
@@ -604,8 +566,8 @@ export function FilterPanel({
                         className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                       >
                         <Checkbox
-                          checked={localAffiliations.includes(aff)}
-                          onCheckedChange={() => toggleAffiliation(aff)}
+                          checked={selectedAccusedAffiliations.includes(aff)}
+                          onCheckedChange={() => toggleAccusedAffiliation(aff)}
                           className="h-3.5 w-3.5"
                         />
                         <span className="flex-1 truncate">{aff}</span>
@@ -642,7 +604,7 @@ export function FilterPanel({
                           className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                         >
                           <Checkbox
-                            checked={localDecisions.includes(dec)}
+                            checked={selectedDecisions.includes(dec)}
                             onCheckedChange={() => toggleDecision(dec)}
                             className="h-3.5 w-3.5"
                           />
