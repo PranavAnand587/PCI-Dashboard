@@ -32,7 +32,7 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
       .sort((a, b) => b[1] - a[1])
 
     // Top N logic
-    const TOP_N = 10
+    const TOP_N = 20
     if (sorted.length <= TOP_N) {
       return sorted.map(([decision, count]) => ({ decision, count }))
     }
@@ -136,7 +136,7 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Overall Decision Distribution */}
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle>Specific Decision Outcomes</CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
@@ -167,7 +167,7 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
         </Card>
 
         {/* Upheld Rate by Accused Occupation */}
-        <Card className="bg-card border-border lg:col-span-2">
+        <Card className="bg-card border-border lg:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground">
               {selectedDirection === "against_press" ? "Highest Upheld Rates by Press Level" : "Highest Upheld Rates by Accused Category"}

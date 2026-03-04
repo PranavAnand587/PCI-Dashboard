@@ -67,25 +67,30 @@ export function ComplainantsAnalysis({ data, selectedDirection }: ComplainantsAn
 
   // Government vs Non-Government breakdown (using Category)
   const govVsNonGov = useMemo(() => {
-    let gov = 0,
-      nonGov = 0
+    let gov = 0
+    let nonGov = 0
 
     data.forEach((d) => {
-      // Check if category is Government or Political
       const cat = d.complainantCategory
-      if (cat === "Government" || cat === "Political") {
+
+      if (
+        cat === "Government" ||
+        cat === "Political" ||
+        cat === "Law Enforcement" ||
+        cat === "Judiciary"
+      ) {
         gov++
-      } else {
+      }
+      else {
         nonGov++
       }
     })
 
     return [
-      { name: "Government/Political", value: gov, fill: "#dc2626" },
+      { name: "Government", value: gov, fill: "#dc2626" },
       { name: "Non-Government", value: nonGov, fill: "#2563eb" },
     ]
   }, [data])
-
   // Complainant occupation by complaint type (Normalized)
   const occupationByType = useMemo(() => {
     const matrix: Record<string, Record<string, number>> = {}

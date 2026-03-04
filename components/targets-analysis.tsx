@@ -52,21 +52,22 @@ function getTargetDisplayName(d: PCIComplaint) {
   const name = d.against?.trim()
 
   // 1. If no valid affiliation
-  if (!aff || aff === "Unknown" || aff === "None") {
-    const lowerName = name?.toLowerCase() || ""
-    const genericRoles = [
-      "editor", "the editor", "chief editor", "resident editor", "executive editor",
-      "reporter", "correspondent", "publisher", "printer", "owner", "manager",
-      "editor-in-chief", "sub-editor", "news editor", "group editor", "managing editor"
-    ]
+  // if (!aff || aff === "Unknown" || aff === "None") {
+  //   // const lowerName = name?.toLowerCase() || ""
+  //   // const genericRoles = [
+  //   //   "editor", "the editor", "chief editor", "resident editor", "executive editor",
+  //   //   "reporter", "correspondent", "publisher", "printer", "owner", "manager",
+  //   //   "editor-in-chief", "sub-editor", "news editor", "group editor", "managing editor"
+  //   // ]
 
-    // If the name itself is just "Editor", label it clearly
-    if (genericRoles.includes(lowerName)) {
-      return `${name} (Unspecified Media Outlet)`
-    }
+  //   // // If the name itself is just "Editor", label it clearly
+  //   // if (genericRoles.includes(lowerName)) {
+  //   //   return `${name} (Unspecified Media Outlet)`
+  //   // }
 
-    return name || "Unknown"
-  }
+  //   // return name || "Unknown"
+  //   return "Unknown"
+  // }
 
   // 2. If name is missing, just return affiliation
   if (!name) return aff
@@ -129,20 +130,43 @@ export function TargetsAnalysis({ data, selectedDirection }: TargetsAnalysisProp
   }
 
   // Top media organizations targeted
+  // const topTargets = useMemo(() => {
+  //   const counts = new Map<string, number>()
+
+  //   data.forEach((d) => {
+  //     const label = getTargetDisplayName(d)
+  //     if (label === ".") return
+  //     counts.set(label, (counts.get(label) || 0) + 1)
+  //   })
+  //   return Array.from(counts.entries())
+  //     .sort((a, b) => b[1] - a[1])
+  //     .slice(0, 15)
+  //     .map(([name, count]) => ({
+  //       name,          // full label for axis
+  //       fullName: name, // keep if you want it elsewhere
+  //       count,
+  //     }))
+  // }, [data])
+
+
   const topTargets = useMemo(() => {
     const counts = new Map<string, number>()
 
     data.forEach((d) => {
       const label = getTargetDisplayName(d)
-      if (label === ".") return
+
+      // Hide Unknown from chart
+      if (!label || label === "Unknown" || label === ".") return
+
       counts.set(label, (counts.get(label) || 0) + 1)
     })
+
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 15)
       .map(([name, count]) => ({
-        name,          // full label for axis
-        fullName: name, // keep if you want it elsewhere
+        name,
+        fullName: name,
         count,
       }))
   }, [data])
