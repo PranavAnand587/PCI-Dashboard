@@ -24,7 +24,7 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
     const counts = new Map<string, number>()
 
     data.forEach(d => {
-      const decision = d.decisionSpecific || "Unknown"
+      const decision = d.decisionParent || "Unknown"
       counts.set(decision, (counts.get(decision) || 0) + 1)
     })
 
@@ -134,9 +134,9 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Overall Decision Distribution */}
-        <Card className="bg-card border-border lg:col-span-2">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle>Specific Decision Outcomes</CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
@@ -167,7 +167,7 @@ export function AccountabilityAnalysis({ data, selectedDirection }: Accountabili
         </Card>
 
         {/* Upheld Rate by Accused Occupation */}
-        <Card className="bg-card border-border lg:col-span-1">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground">
               {selectedDirection === "against_press" ? "Highest Upheld Rates by Press Level" : "Highest Upheld Rates by Accused Category"}
